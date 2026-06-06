@@ -19,13 +19,14 @@ public class CsvIngestionJobListener implements JobExecutionListener {
 
     private final IngestionJobRepository ingestionJobRepository;
 
-    private static UUID readJobId(JobExecution jobExecution) {
-        return UUID.fromString(jobExecution.getJobParameters().getString("ingestionJobId"));
-    }
-
     @Override
     public void beforeJob(JobExecution jobExecution) {
         UUID ingestionJobId = readJobId(jobExecution);
+        if (ingestionJobId == null) {
+            log.warn("Job {} launched without ingestionJobId parameter; skipping state reconciliation",
+                    jobExecution.getJobInstance().getJobName());
+            return;
+        }
         ingestionJobRepository.findById(ingestionJobId).ifPresent(job -> {
             job.setStatus(JobStatus.RUNNING);
             job.setStartedAt(Instant.now());
@@ -37,6 +38,11 @@ public class CsvIngestionJobListener implements JobExecutionListener {
     @Override
     public void afterJob(JobExecution jobExecution) {
         UUID ingestionJobId = readJobId(jobExecution);
+        if (ingestionJobId == null) {
+            log.warn("Job {} completed without ingestionJobId parameter; skipping state reconciliation",
+                    jobExecution.getJobInstance().getJobName());
+            return;
+        }
         ingestionJobRepository.findById(ingestionJobId).ifPresent(job -> {
             long readCount = jobExecution.getStepExecutions().stream()
                     .mapToLong(s -> s.getReadCount())
@@ -64,5 +70,10 @@ public class CsvIngestionJobListener implements JobExecutionListener {
             log.info("Ingestion job {} finished: status={} read={} wrote={}",
                     ingestionJobId, job.getStatus(), readCount, writeCount);
         });
+    }
+
+    private static UUID readJobId(JobExecution jobExecution) {
+        String value = jobExecution.getJobParameters().getString("ingestionJobId");
+        return value == null ? null : UUID.fromString(value);
     }
 }

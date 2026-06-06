@@ -2,6 +2,10 @@ spring:
   application:
     name: saleslens
 
+  batch:
+    job:
+      enabled: false
+
   datasource:
     url: ${DB_URL:jdbc:postgresql://postgres:5432/saleslens_db}
     username: ${DB_USERNAME:postgresadmin}
