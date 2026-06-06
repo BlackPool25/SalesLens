@@ -25,12 +25,12 @@ public class AuthController {
     }
 
     @PostMapping("/register")
-    public String registerUser(@Validated @RequestBody RegisterRequest registerRequest){
+    public String registerUser(@Validated @RequestBody RegisterRequest registerRequest) {
         return authService.registerUser(registerRequest);
     }
 
     @PostMapping("/login")
-    public ResponseEntity<AuthResponse> loginUser(@Validated @RequestBody LoginRequest request){
+    public ResponseEntity<AuthResponse> loginUser(@Validated @RequestBody LoginRequest request) {
         try {
             return ResponseEntity.ok(authService.loginUser(request));
         } catch (BadCredentialsException e) {

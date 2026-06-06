@@ -3,6 +3,7 @@ package com.shreyas.saleslens.dto;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
 
@@ -12,8 +13,8 @@ public class DataSourceResponse {
     private UUID id;
     private String name;
     private String sourceType;
-    private String trustScore;
-    private String active;
+    private BigDecimal trustScore;
+    private Boolean active;
     private Instant lastSyncAt;
     private Instant createdAt;
     private Long createdBy;

@@ -24,10 +24,9 @@ import java.security.SecureRandom;
 @RequiredArgsConstructor
 public class SecurityBeans {
 
-    SecureRandom secureRandom = new SecureRandom();
-
     private final CustomUserDetailsService customUserDetailsService;
     private final JwtFilter jwtFilter;
+    SecureRandom secureRandom = new SecureRandom();
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {

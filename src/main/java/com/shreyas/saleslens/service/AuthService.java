@@ -30,11 +30,11 @@ public class AuthService {
 
     public String registerUser(RegisterRequest registerRequest) {
 
-        if(checkUserExists(registerRequest.getUsername(), registerRequest.getEmail())) {
+        if (checkUserExists(registerRequest.getUsername(), registerRequest.getEmail())) {
             return "User already exists";
         }
 
-        Users user =  new Users();
+        Users user = new Users();
         user.setUsername(registerRequest.getUsername());
         user.setEmail(registerRequest.getEmail());
         user.setFirstName(registerRequest.getFirstName());
@@ -48,7 +48,7 @@ public class AuthService {
 
     public AuthResponse loginUser(LoginRequest loginRequest) {
 
-        Users user =  usersRepository
+        Users user = usersRepository
                 .findByUsernameOrEmail(loginRequest.getIdentifier(), loginRequest.getIdentifier())
                 .orElseThrow(() -> new RuntimeException("Invalid credentials!"));
 

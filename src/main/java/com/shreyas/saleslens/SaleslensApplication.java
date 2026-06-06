@@ -10,9 +10,9 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 @EnableKafka
 public class SaleslensApplication {
 
-	public static void main(String[] args) {
-		SpringApplication.run(SaleslensApplication.class, args);
-	}
+    public static void main(String[] args) {
+        SpringApplication.run(SaleslensApplication.class, args);
+    }
 
 
 }
