@@ -1,0 +1,52 @@
+version: '3.8'
+
+services:
+  backend:
+    build: .
+    ports:
+      - "8500:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      kafka: # Fixed casing to match lowercase
+        condition: service_healthy # Changed to wait until Kafka is fully ready
+
+  postgres:
+    image: postgres:alpine
+    environment:
+      POSTGRES_DB: saleslens_db
+      POSTGRES_USER: postgresadmin
+      POSTGRES_PASSWORD: adminpassword
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgresadmin -d saleslens_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:alpine
+
+  kafka:
+    image: apache/kafka:latest
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@localhost:29093
+      KAFKA_LISTENERS: CONTROLLER://:29093,INTERNAL://:29092,EXTERNAL://:9092
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:29092,EXTERNAL://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+      KAFKA_LOG_DIRS: /tmp/kraft-combined-logs
+      KAFKA_CLUSTER_ID: mkU3OEVXQD6Mc9JKgTKA_A
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1        # ← add this
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0        # ← add this
+    healthcheck:
+      test: [ "CMD", "/opt/kafka/bin/kafka-topics.sh", "--bootstrap-server", "localhost:29092", "--list" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5

@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SalesLens Database Schema</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/svg-pan-zoom@3.6.1/dist/svg-pan-zoom.min.js"></script>
+<style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #0f172a; color: #e2e8f0; font-family: system-ui, sans-serif; overflow-x: hidden; }
+    h1 { color: #38bdf8; padding: 16px 24px; font-size: 1.5em; border-bottom: 1px solid #1e293b; }
+    #diagram-container { width: 100vw; height: 60vh; background: #0f172a; overflow: hidden; position: relative; border-bottom: 2px solid #1e293b; }
+    #diagram-container .mermaid { width: 100%; height: 100%; }
+    #diagram-container .mermaid svg { width: 100%; height: 100%; }
+    .toolbar { display: flex; gap: 8px; padding: 8px 24px; background: #1e293b; align-items: center; border-bottom: 1px solid #334155; }
+    .toolbar button { background: #334155; color: #e2e8f0; border: 1px solid #475569; padding: 6px 14px; border-radius: 4px; cursor: pointer; font-size: 0.85em; }
+    .toolbar button:hover { background: #475569; }
+    .toolbar span { color: #64748b; font-size: 0.8em; margin-left: auto; }
+    #tables { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 8px; padding: 16px 24px; }
+    .card { background: #1e293b; border: 1px solid #334155; border-radius: 6px; padding: 12px; }
+    .card h3 { color: #f1f5f9; font-size: 0.95em; margin-bottom: 4px; }
+    .card .purpose { color: #94a3b8; font-size: 0.8em; margin-bottom: 8px; }
+    .card .tags { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 4px; }
+    .tag-pk { background: #2563eb; color: white; padding: 1px 6px; border-radius: 3px; font-size: 0.7em; }
+    .tag-fk { background: #7c3aed; color: white; padding: 1px 6px; border-radius: 3px; font-size: 0.7em; }
+    .tag-uq { background: #059669; color: white; padding: 1px 6px; border-radius: 3px; font-size: 0.7em; }
+    .tag-schema { background: #d97706; color: white; padding: 1px 6px; border-radius: 3px; font-size: 0.7em; }
+    .card code { color: #34d399; font-size: 0.8em; }
+    .schema-divider { grid-column: 1 / -1; color: #64748b; font-size: 0.8em; text-transform: uppercase; letter-spacing: 1px; padding: 8px 0 4px 0; border-bottom: 1px solid #334155; margin-top: 8px; }
+</style>
+</head>
+<body>
+
+<h1>SalesLens — Database Schema Diagram</h1>
+
+<div class="toolbar">
+    <button onclick="zoomIn()">+ Zoom In</button>
+    <button onclick="zoomOut()">- Zoom Out</button>
+    <button onclick="resetZoom()">Reset</button>
+    <span>Scroll to zoom · Drag to pan</span>
+</div>
+
+<div id="diagram-container">
+    <pre class="mermaid">
+erDiagram
+    users ||--o{ data_sources : "creates"
+
+    data_sources ||--o{ source_schemas : "has"
+    data_sources ||--o{ ingestion_jobs : "triggers"
+    data_sources ||--o{ staged_records : "supplies"
+    data_sources ||--o{ field_mappings : "defines"
+    data_sources ||--o{ data_profiles : "profiles"
+    data_sources ||--o{ quality_rules : "configures"
+    data_sources ||--o{ quality_runs : "evaluates"
+    data_sources ||--o{ conflict_records : "conflicts-in"
+    data_sources ||--o{ data_lineage : "traces-to"
+
+    source_schemas ||--o{ source_schema_fields : "contains"
+    source_schemas ||--o{ data_profiles : "measured-by"
+
+    ingestion_jobs ||--o{ staged_records : "contains"
+    ingestion_jobs ||--o{ quality_runs : "checked-by"
+    ingestion_jobs ||--o{ data_lineage : "tracks"
+
+    staged_records ||--o{ quality_issues : "flagged"
+    staged_records ||--o{ data_lineage : "originates"
+
+    data_profiles ||--o{ field_profiles : "details"
+
+    quality_runs ||--o{ quality_scores : "scores"
+    quality_runs ||--o{ quality_issues : "finds"
+
+    data_sources ||--o{ canonical_customers : "sources"
+    data_sources ||--o{ canonical_products : "sources"
+    data_sources ||--o{ canonical_salespersons : "sources"
+    data_sources ||--o{ canonical_orders : "sources"
+    canonical_customers ||--o{ canonical_orders : "places"
+    canonical_products ||--o{ canonical_order_line_items : "ordered-in"
+    canonical_salespersons ||--o{ canonical_orders : "sells"
+    canonical_regions ||--o{ canonical_orders : "located-in"
+    canonical_orders ||--o{ canonical_order_line_items : "includes"
+    </pre>
+</div>
+
+<div id="tables">
+
+<div class="schema-divider">Core Infrastructure (public schema)</div>
+
+<div class="card">
+<h3>users</h3>
+<div class="purpose">Registered users. Authentication + role separation.</div>
+<div class="tags"><span class="tag-pk">PK</span><span class="tag-uq">UQ</span></div>
+<code>id BIGSERIAL · username · email · password · role</code>
+</div>
+
+<div class="card">
+<h3>data_sources</h3>
+<div class="purpose">Every data source the system ingests from. Central reference table.</div>
+<div class="tags"><span class="tag-pk">PK</span><span class="tag-fk">FK→users</span></div>
+<code>id UUID · source_type · trust_score · connection_config JSONB · active</code>
+</div>
+
+<div class="card">
+<h3>source_schemas</h3>
+<div class="purpose">Versioned schema snapshots. New version on every schema drift.</div>
+<div class="tags"><span class="tag-pk">PK</span><span class="tag-fk">FK→data_sources</span></div>
+<code>id UUID · version · status (ACTIVE/SUPERSEDED)</code>
+</div>
+
+<div class="card">
+<h3>source_schema_fields</h3>
+<div class="purpose">Column metadata within a schema — type, format, sample values.</div>
+<div class="tags"><span class="tag-pk">PK</span><span class="tag-fk">FK→source_schemas</span></div>
+<code>id UUID · field_name · inferred_type · detected_format · sample_values JSONB</code>
+</div>
+
+<div class="schema-divider">Ingestion Pipeline (public schema)</div>
+
+<div class="card">
+<h3>ingestion_jobs</h3>
+<div class="purpose">One row per ingestion run. Status + per-stage record counters.</div>
+<div class="tags"><span class="tag-pk">PK</span><span class="tag-fk">FK→data_sources</span></div>
+<code>id UUID · status · total_read · total_transformed · total_loaded · error_message</code>
+</div>
+
+<div class="card">
+<h3>staged_records</h3>
+<div class="purpose">Raw source data landing zone. Everything passes through here first.</div>
+<div class="tags"><span class="tag-pk">PK</span><span class="tag-fk">FK→ingestion_jobs</span><span class="tag-fk">FK→data_sources</span></div>
+<code>id UUID · raw_payload JSONB · record_hash · row_number</code>
+</div>
+
+<div class="card">
+<h3>field_mappings</h3>
+<div class="purpose">Source field → canonical field with confidence. PENDING blocks data flow.</div>
+<div class="tags"><span class="tag-pk">PK</span><span class="tag-fk">FK→data_sources</span></div>
+<code>id UUID · canonical_entity · canonical_field · confidence · status · transform_rule</code>
+</div>
+
+<div class="schema-divider">Profiling &amp; Quality (public schema)</div>
+
+<div class="card">
+<h3>data_profiles</h3>
+<div class="purpose">Statistical snapshot of source data — baseline for drift detection.</div>
+<div class="tags"><span class="tag-pk">PK</span><span class="tag-fk">FK→data_sources</span><span class="tag-fk">FK→source_schemas</span></div>
+<code>id UUID · total_records</code>
+</div>
+
+<div class="card">
+<h3>field_profiles</h3>
+<div class="purpose">Per-field: null rate, cardinality, value distribution.</div>
+<div class="tags"><span class="tag-pk">PK</span><span class="tag-fk">FK→data_profiles</span></div>
+<code>id UUID · field_name · null_rate · unique_count · top_values JSONB · min/max</code>
+</div>
+
+<div class="card">
+<h3>quality_rules</h3>
+<div class="purpose">Configurable quality rules. Add via API, no redeploy needed.</div>
+<div class="tags"><span class="tag-pk">PK</span><span class="tag-fk">FK→data_sources</span></div>
+<code>id UUID · dimension · rule_code · severity · config JSONB · active</code>
+</div>
+
+<div class="card">
+<h3>quality_runs</h3>
+<div class="purpose">Links a job to its quality evaluation session.</div>
+<div class="tags"><span class="tag-pk">PK</span><span class="tag-fk">FK→ingestion_jobs</span><span class="tag-fk">FK→data_sources</span></div>
+<code>id UUID · total_records · total_issues</code>
+</div>
+
+<div class="card">
+<h3>quality_scores</h3>
+<div class="purpose">Per-dimension score + overall + letter grade.</div>
+<div class="tags"><span class="tag-pk">PK</span><span class="tag-fk">FK→quality_runs</span></div>
+<code>id UUID · dimension · score · overall_score · grade (A/B/C/D/F)</code>
+</div>
+
+<div class="card">
+<h3>quality_issues</h3>
+<div class="purpose">Every violation: one row per field that failed one rule.</div>
+<div class="tags"><span class="tag-pk">PK</span><span class="tag-fk">FK→quality_runs</span><span class="tag-fk">FK→staged_records</span></div>
+<code>id UUID · dimension · severity · field_name · field_value · message · status</code>
+</div>
+
+<div class="card">
+<h3>conflict_records</h3>
+<div class="purpose">Immutable record of "Source A said X, Source B said Y."</div>
+<div class="tags"><span class="tag-pk">PK</span><span class="tag-fk">FK→data_sources×2</span></div>
+<code>id UUID · entity_type · field_name · value_a · value_b · resolution_strategy · status</code>
+</div>
+
+<div class="schema-divider">Canonical Store (canonical schema) — External Tools Read Here</div>
+
+<div class="card">
+<h3>canonical.customers</h3>
+<div class="purpose">One row per real customer, merged from all sources.</div>
+<div class="tags"><span class="tag-pk">PK</span></div>
+<code>id UUID · external_refs JSONB · name · segment · primary_source · quality_score · has_conflicts</code>
+</div>
+
+<div class="card">
+<h3>canonical.products</h3>
+<div class="purpose">Unified product catalog.</div>
+<div class="tags"><span class="tag-pk">PK</span></div>
+<code>id UUID · external_refs JSONB · sku · name · category · unit_price · currency · active</code>
+</div>
+
+<div class="card">
+<h3>canonical.salespersons</h3>
+<div class="purpose">Unified sales reps.</div>
+<div class="tags"><span class="tag-pk">PK</span></div>
+<code>id UUID · external_refs JSONB · name · team · territory · active</code>
+</div>
+
+<div class="card">
+<h3>canonical.regions</h3>
+<div class="purpose">Static region lookup — not merged from sources.</div>
+<div class="tags"><span class="tag-pk">PK</span></div>
+<code>id UUID · name · country · zone</code>
+</div>
+
+<div class="card">
+<h3>canonical.orders</h3>
+<div class="purpose">Unified orders. FK chain to customers/salespersons/regions.</div>
+<div class="tags"><span class="tag-pk">PK</span><span class="tag-fk">FK→customers</span><span class="tag-fk">FK→salespersons</span><span class="tag-fk">FK→regions</span></div>
+<code>id UUID · order_date · total_amount · currency · source_id · job_id · has_conflicts</code>
+</div>
+
+<div class="card">
+<h3>canonical.order_line_items</h3>
+<div class="purpose">Atomic sale unit. line_total = quantity × unit_price − discount.</div>
+<div class="tags"><span class="tag-pk">PK</span><span class="tag-fk">FK→orders</span><span class="tag-fk">FK→products</span></div>
+<code>id UUID · quantity · unit_price · discount · line_total</code>
+</div>
+
+<div class="schema-divider">Lineage (public schema)</div>
+
+<div class="card">
+<h3>data_lineage</h3>
+<div class="purpose">Full audit trail: canonical record → source → transformations applied.</div>
+<div class="tags"><span class="tag-pk">PK</span><span class="tag-fk">FK→data_sources</span><span class="tag-fk">FK→ingestion_jobs</span><span class="tag-fk">FK→staged_records</span></div>
+<code>id UUID · canonical_id · canonical_type · transformations JSONB</code>
+</div>
+
+</div>
+
+<script>
+let panZoomInstance = null;
+
+mermaid.initialize({
+    startOnLoad: true,
+    theme: 'dark',
+    themeVariables: {
+        primaryColor: '#1e293b',
+        primaryTextColor: '#e2e8f0',
+        lineColor: '#38bdf8',
+        secondaryColor: '#334155',
+        tertiaryColor: '#0f172a'
+    }
+});
+
+mermaid.run({ querySelector: '.mermaid' }).then(() => {
+    const svg = document.querySelector('#diagram-container svg');
+    if (svg) {
+        svg.style.width = '100%';
+        svg.style.height = '100%';
+        svg.removeAttribute('viewBox');
+        panZoomInstance = svgPanZoom(svg, {
+            zoomEnabled: true,
+            controlIconsEnabled: false,
+            fit: true,
+            center: true,
+            minZoom: 0.3,
+            maxZoom: 10,
+            dblClickZoomEnabled: true,
+            mouseWheelZoomEnabled: true,
+            preventMouseEventsDefault: true
+        });
+    }
+});
+
+function zoomIn() { if (panZoomInstance) panZoomInstance.zoomIn(); }
+function zoomOut() { if (panZoomInstance) panZoomInstance.zoomOut(); }
+function resetZoom() { if (panZoomInstance) panZoomInstance.reset(); }
+</script>
+</body>
+</html>
