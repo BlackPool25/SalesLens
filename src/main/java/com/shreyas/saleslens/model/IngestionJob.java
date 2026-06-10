@@ -1,5 +1,6 @@
 package com.shreyas.saleslens.model;
 
+import com.shreyas.saleslens.model.enums.JobStatus;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;

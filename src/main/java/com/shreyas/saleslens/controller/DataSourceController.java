@@ -4,6 +4,7 @@ import com.shreyas.saleslens.dto.CreateSourceRequest;
 import com.shreyas.saleslens.dto.DataSourceResponse;
 import com.shreyas.saleslens.security.UserPrincipal;
 import com.shreyas.saleslens.service.DataSourceService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
@@ -20,7 +21,7 @@ public class DataSourceController {
     private final DataSourceService dataSourceService;
 
     @PostMapping("/create-source")
-    public String createSource(@RequestBody CreateSourceRequest request) {
+    public String createSource(@Valid @RequestBody CreateSourceRequest request) {
 
         UserPrincipal userPrincipal = (UserPrincipal) Objects.requireNonNull(SecurityContextHolder.getContext().getAuthentication()).getPrincipal();
 

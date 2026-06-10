@@ -1,6 +1,6 @@
 package com.shreyas.saleslens.batch.csv;
 
-import com.shreyas.saleslens.model.JobStatus;
+import com.shreyas.saleslens.model.enums.JobStatus;
 import com.shreyas.saleslens.repository.IngestionJobRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

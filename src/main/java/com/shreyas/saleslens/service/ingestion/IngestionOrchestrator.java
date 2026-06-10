@@ -2,7 +2,7 @@ package com.shreyas.saleslens.service.ingestion;
 
 import com.shreyas.saleslens.model.DataSource;
 import com.shreyas.saleslens.model.IngestionJob;
-import com.shreyas.saleslens.model.JobStatus;
+import com.shreyas.saleslens.model.enums.JobStatus;
 import com.shreyas.saleslens.repository.DataSourceRepository;
 import com.shreyas.saleslens.repository.IngestionJobRepository;
 import lombok.RequiredArgsConstructor;
@@ -11,7 +11,7 @@ import org.springframework.batch.core.job.Job;
 import org.springframework.batch.core.job.JobExecution;
 import org.springframework.batch.core.job.parameters.JobParameters;
 import org.springframework.batch.core.job.parameters.JobParametersBuilder;
-import org.springframework.batch.core.launch.JobLauncher;
+import org.springframework.batch.core.launch.JobOperator;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -25,7 +25,7 @@ import java.util.UUID;
 @Slf4j
 public class IngestionOrchestrator {
 
-    private final JobLauncher jobLauncher;
+    private final JobOperator jobOperator;
     private final Job csvIngestionJob;
     private final DataSourceRepository dataSourceRepository;
     private final IngestionJobRepository ingestionJobRepository;
@@ -42,13 +42,12 @@ public class IngestionOrchestrator {
 
         try {
             JobParameters params = new JobParametersBuilder()
-                    .addString("filePath", tempFile.toString())
+                    .addString("filePath", tempFile.toString(), false)
                     .addString("ingestionJobId", job.getId().toString())
-                    .addString("sourceId", sourceId.toString())
-                    .addLong("runId", System.currentTimeMillis())
+                    .addString("sourceId", sourceId.toString(), false)
                     .toJobParameters();
 
-            JobExecution execution = jobLauncher.run(csvIngestionJob, params);
+            JobExecution execution = jobOperator.start(csvIngestionJob, params);
             log.info("Launched CSV ingestion job {} (status={})", job.getId(), execution.getStatus());
             return job.getId();
         } catch (Exception e) {

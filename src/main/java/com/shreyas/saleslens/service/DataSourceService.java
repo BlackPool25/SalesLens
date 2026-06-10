@@ -28,6 +28,7 @@ public class DataSourceService {
         dataSource.setSourceType(request.getSourceType());
         dataSource.setTrustScore(request.getTrustScore());
         dataSource.setActive(request.getActive());
+        dataSource.setConnectionConfig(request.getConnectionConfig());
         dataSource.setCreatedBy(usersRepository.getReferenceById(userId));
         dataSourceRepository.save(dataSource);
         return dataSource.getName() + " saved successfully";
@@ -53,18 +54,12 @@ public class DataSourceService {
     }
 
     public List<DataSourceResponse> getByUser(Long userId) {
-
         Users user = usersRepository.getReferenceById(userId);
-
-        List<DataSource> dataSources = dataSourceRepository.findByCreatedBy(user).orElseThrow(
-                () -> new RuntimeException("User doesn't have datasource")
-        );
+        List<DataSource> dataSources = dataSourceRepository.findByCreatedBy(user);
         List<DataSourceResponse> dataSourceResponseList = new ArrayList<>();
-
         for (DataSource dataSource : dataSources) {
             dataSourceResponseList.add(dataSourceMapper.toResponse(dataSource));
         }
-
         return dataSourceResponseList;
     }
 }

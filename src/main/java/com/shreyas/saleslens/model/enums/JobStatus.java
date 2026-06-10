@@ -1,4 +1,4 @@
-package com.shreyas.saleslens.model;
+package com.shreyas.saleslens.model.enums;
 
 public enum JobStatus {
     PENDING,
