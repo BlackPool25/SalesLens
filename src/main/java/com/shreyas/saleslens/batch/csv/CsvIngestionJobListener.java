@@ -2,6 +2,7 @@ package com.shreyas.saleslens.batch.csv;
 
 import com.shreyas.saleslens.model.enums.JobStatus;
 import com.shreyas.saleslens.repository.IngestionJobRepository;
+import com.shreyas.saleslens.service.inference.SchemaInferenceService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.batch.core.BatchStatus;
@@ -18,6 +19,7 @@ import java.util.UUID;
 public class CsvIngestionJobListener implements JobExecutionListener {
 
     private final IngestionJobRepository ingestionJobRepository;
+    private final SchemaInferenceService schemaInferenceService;
 
     @Override
     public void beforeJob(JobExecution jobExecution) {
@@ -67,6 +69,15 @@ public class CsvIngestionJobListener implements JobExecutionListener {
                 job.setStatus(JobStatus.PARTIAL);
             }
             ingestionJobRepository.save(job);
+
+            if (job.getStatus() == JobStatus.COMPLETED) {
+                try {
+                    schemaInferenceService.runInference(ingestionJobId);
+                } catch (Exception e) {
+                    log.warn("Schema inference failed for job {}: {}", ingestionJobId, e.getMessage());
+                }
+            }
+
             log.info("Ingestion job {} finished: status={} read={} wrote={}",
                     ingestionJobId, job.getStatus(), readCount, writeCount);
         });
@@ -77,3 +88,4 @@ public class CsvIngestionJobListener implements JobExecutionListener {
         return value == null ? null : UUID.fromString(value);
     }
 }
+

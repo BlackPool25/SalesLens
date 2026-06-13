@@ -13,7 +13,7 @@ public class ProducerTrigger {
 
     private final OrderProducer orderProducer;
 
-    @Scheduled(fixedRate = 5000)
+//    @Scheduled(fixedRate = 5000)
     public void scheduleMessages() {
         int randomInt = ThreadLocalRandom.current().nextInt(0, 101);
 
