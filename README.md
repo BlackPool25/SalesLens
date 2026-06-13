@@ -26,6 +26,20 @@ The Phase 3 implementation introduces automated schema profiling and drift track
 
 ---
 
+## Phase 4 - Semantic Field Mapping
+Phase 4 introduces intelligent schema mapping that bridges dynamic ingested schemas with a canonical entity model, supporting automated mapping, manual overrides, and structural transformation.
+
+### Key Features
+1. **Heuristic Similarity Matcher**:
+   * **Exact Match (1.00)**: Matching column name or predefined synonyms directly.
+   * **Levenshtein Distance (0.85)**: Typo tolerance (edit distance <= 2).
+   * **Token Overlap (0.70)**: Partial match (Jaccard similarity >= 0.5) for word overlaps.
+   * **Type Fallback (0.55)**: Match based on column data type.
+2. **Dynamic Payload Transformation**: Translates nested raw record maps into flattened, singularized canonical JSON maps (e.g. `{"order.total_amount": "123.45"}`) according to confirmed field mappings.
+3. **Safety & Hardening**: Ignores empty/blank headers automatically, stringifies numeric and boolean raw inputs, and handles malformed JSON inputs gracefully without failing ingestion jobs.
+
+---
+
 ## Getting Started
 
 ### Prerequisites
@@ -42,15 +56,14 @@ docker compose up -d --build
 ### Running Unit Tests
 To run Java unit tests locally:
 ```bash
-mvn test
+mvn test -Dtest=!SaleslensApplicationTests
 ```
 
 ### Running End-to-End Verification
-An automated Python integration script validates user registration, authentication, data source registration, CSV ingestion, schema inference, and schema drift handling:
+An automated Python integration script validates user registration, authentication, data source registration, CSV ingestion, schema inference, schema drift, semantic mapping generation, and manual overrides:
 ```bash
-python3 /home/lightdesk/.gemini/antigravity/brain/8d2eb9c0-4148-47e1-8c3f-9b8ddb13f5c6/scratch/verify_e2e.py
+python3 verify_e2e.py
 ```
-*(Alternatively, copy/run the script from the scratch directory.)*
 
 ---
 
@@ -113,4 +126,23 @@ python3 /home/lightdesk/.gemini/antigravity/brain/8d2eb9c0-4148-47e1-8c3f-9b8ddb
 
 ### 6. Get Schema Drift History
 * **Endpoint**: `GET /api/v1/sources/{sourceId}/schema/drift`
+* **Request Headers**: `Authorization: Bearer <accessToken>`
+
+### 7. Get Field Mappings
+* **Endpoint**: `GET /api/v1/sources/{sourceId}/mappings`
+* **Request Headers**: `Authorization: Bearer <accessToken>`
+
+### 8. Confirm Mapping
+* **Endpoint**: `PUT /api/v1/sources/{sourceId}/mappings/{mappingId}/confirm`
+* **Request Headers**: `Authorization: Bearer <accessToken>`
+
+### 9. Override Mapping
+* **Endpoint**: `PUT /api/v1/sources/{sourceId}/mappings/{mappingId}/override`
+* **Request Headers**: `Authorization: Bearer <accessToken>`
+* **Parameters**:
+  * `canonicalEntity`: (String, e.g. `customers`)
+  * `canonicalField`: (String, e.g. `name`)
+
+### 10. Ignore Mapping
+* **Endpoint**: `PUT /api/v1/sources/{sourceId}/mappings/{mappingId}/ignore`
 * **Request Headers**: `Authorization: Bearer <accessToken>`

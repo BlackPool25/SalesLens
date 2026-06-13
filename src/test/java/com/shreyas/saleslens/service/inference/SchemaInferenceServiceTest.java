@@ -6,6 +6,7 @@ import com.shreyas.saleslens.model.*;
 import com.shreyas.saleslens.model.enums.InferredType;
 import com.shreyas.saleslens.repository.*;
 import org.junit.jupiter.api.BeforeEach;
+import com.shreyas.saleslens.service.SemanticMapperService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -46,6 +47,9 @@ class SchemaInferenceServiceTest {
 
     @Mock
     private IngestionJobRepository ingestionJobRepository;
+
+    @Mock
+    private SemanticMapperService semanticMapperService;
 
     @Spy
     private ObjectMapper objectMapper = new ObjectMapper();

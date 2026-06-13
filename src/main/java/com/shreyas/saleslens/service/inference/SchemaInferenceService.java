@@ -7,6 +7,7 @@ import com.shreyas.saleslens.model.enums.InferredType;
 import com.shreyas.saleslens.repository.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
+import com.shreyas.saleslens.service.SemanticMapperService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,6 +28,7 @@ public class SchemaInferenceService {
     private final FieldProfileRepository fieldProfileRepository;
     private final TypeDetectionService typeDetectionService;
     private final IngestionJobRepository ingestionJobRepository;
+    private final SemanticMapperService semanticMapperService;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Transactional
@@ -160,6 +162,7 @@ public class SchemaInferenceService {
                 targetSchema = sourceSchemaRepository.save(newSchema);
 
                 saveSchemaFields(inferredFields, targetSchema);
+                semanticMapperService.generateMappings(source.getId(), targetSchema);
             } else {
                 targetSchema = prevActive;
             }
@@ -174,6 +177,7 @@ public class SchemaInferenceService {
             targetSchema = sourceSchemaRepository.save(newSchema);
 
             saveSchemaFields(inferredFields, targetSchema);
+            semanticMapperService.generateMappings(source.getId(), targetSchema);
         }
 
         DataProfile profile = new DataProfile();
