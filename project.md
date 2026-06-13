@@ -287,13 +287,15 @@ External Systems (Sources):
 - FR-03.6: Schema and profile written to DB and surfaced via API
 
 ### FR-04: Semantic Field Mapping
-- FR-04.1: After schema inference, system attempts to auto-map source fields to canonical fields
-- FR-04.2: Mapping confidence computed using: exact name match (1.0), fuzzy name match via Levenshtein (0.6–0.9), type + cardinality match (0.5–0.7), value pattern match (0.6–0.8)
-- FR-04.3: Mappings with confidence ≥ 0.80 set to AUTO_CONFIRMED and proceed without user action
-- FR-04.4: Mappings with confidence < 0.80 set to PENDING — data from those fields does not flow until user confirms or overrides
-- FR-04.5: User can confirm, override, or reject any mapping via API
-- FR-04.6: Transformation rules stored per mapping: RENAME, TYPE_CAST, FORMAT_NORMALIZE, SPLIT, MERGE, DERIVE, IGNORE
-- FR-04.7: Unmapped source fields are stored as IGNORED — not lost, not loaded to canonical
+- FR-04.1: After schema inference, the system dynamically attempts to map source fields to canonical fields using a hybrid approach combining heuristic checks with a local LLM matching step.
+- FR-04.2: Mapping engine queries a local Ollama endpoint `http://localhost:11434` with model `qwen3.5:9b` (configurable). To provide proper data distribution context, the engine retrieves 10 randomized sample values from existing canonical tables, alongside 10 sample values from the newly ingested data source CSV, and instructs the LLM to yield a structured JSON mapping decision with high confidence.
+- FR-04.3: LLM mapping runs exactly once per data source schema creation or drift detection. Calculated field mappings are persisted in the `field_mappings` table and reused sequentially for subsequent batch uploads without recurring LLM costs.
+- FR-04.4: Mappings with confidence ≥ 0.80 set to AUTO_CONFIRMED and proceed without user action. Mappings with confidence < 0.80 set to PENDING — data from those fields does not flow to target attributes until user confirms or overrides.
+- FR-04.5: User can confirm, override, or ignore any mapping via API.
+- FR-04.6: Unmapped incoming source fields or fields that don't match any standard canonical attributes are NOT ignored or discarded. They are routed into a flexible `custom_fields` or `additional_attributes` JSONB column on the target canonical table (Option A).
+- FR-04.7: Support Attribute Promotion/Demotion:
+  - **Promotion**: Provide an API to promote a specific JSONB key within `additional_attributes` into a first-class, dedicated column in the canonical Postgres table schema. This dynamic operation runs database DDL queries (`ALTER TABLE ADD COLUMN`), migrates historical JSONB values, and updates metadata so future mappings load directly to the dedicated column.
+  - **Demotion**: Provide an API to demote an existing dedicated column back into a key within the `additional_attributes` JSONB column, migrating values back into the JSONB payload and dropping the column.
 
 ### FR-05: Data Quality Engine
 - FR-05.1: Quality evaluation runs per IngestionJob after transformation, before canonical load
@@ -318,14 +320,16 @@ External Systems (Sources):
   - `TRUST_HIERARCHY`: source with higher trust score wins
   - `LATEST_WINS`: source with more recent updated_at wins
   - `FLAGGED_FOR_REVIEW`: no auto-resolution, human decides via API
-- FR-06.5: Default strategy is FLAGGED_FOR_REVIEW unless user configures otherwise
-- FR-06.6: Conflict does not block loading — canonical record is loaded with the winning value and the conflict is persisted alongside
-- FR-06.7: User can acknowledge, resolve, or suppress any conflict via API
-- FR-06.8: Canonical record carries has_conflicts: true flag when unresolved conflicts exist
+  - FLAGGED_FOR_REVIEW is default.
+- FR-06.5: Conflict does not block loading — canonical record is loaded with the winning value and the conflict is persisted alongside
+- FR-06.6: User can acknowledge, resolve, or suppress any conflict via API
+- FR-06.7: Canonical record carries has_conflicts: true flag when unresolved conflicts exist
 
 ### FR-07: Canonical Store
-- FR-07.1: Six canonical tables: customers, products, salespersons, regions, orders, order_line_items
-- FR-07.2: Each entity stores external_refs as JSONB: {"crm": "C-123", "erp": "1045"} — one canonical row per real-world entity regardless of source count
+- FR-07.1: Six canonical tables: customers, products, salespersons, regions, orders, order_line_items.
+- FR-07.2: Each entity stores:
+  - `external_refs` as JSONB: {"crm": "C-123", "erp": "1045"}
+  - `additional_attributes` as JSONB: Catch-all storage for unmapped or flexible dynamic source fields that have not been promoted to dedicated schema columns.
 - FR-07.3: Each entity carries: primary_source_id, quality_score, has_conflicts, created_at, updated_at
 - FR-07.4: Canonical schema is in its own Postgres schema (`canonical`) — directly queryable by external tools
 - FR-07.5: No business logic in canonical tables — they are a read target, not a processing target
