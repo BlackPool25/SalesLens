@@ -76,7 +76,7 @@
 - `/scripts/kafka_test_producer.py` for load testing
 
 ## Phase 9 — Redis Caching + API Polish
-**Status: IN PROGRESS**
+**Status: COMPLETED**
 
 ### Completed:
 1. **Springdoc/Swagger**: OpenAPI 3.0 docs at `/swagger-ui.html`, `/api-docs` (springdoc-openapi 3.0.3)
@@ -85,11 +85,8 @@
 4. **Pagination on all list endpoints**: `@PageableDefault` with 20-item pages, sorted by `createdAt`
 5. **DB-level conflict filtering**: Replaced in-memory stream filter with `ConflictRecordRepository.findFiltered()` JPQL query
 6. **CanonicalController**: 6 paginated read-only endpoints (`/api/v1/canonical/customers`, `/products`, `/orders`, `/order-line-items`, `/salespersons`, `/regions`)
-
-### Remaining:
-- Test infrastructure fix: CacheManager bean for `@WebMvcTest` slices
-- QualityCacheService unit tests
-- Full scenario QA
+7. **Test infrastructure**: `TestCacheConfig` provides `ConcurrentMapCacheManager` for `@WebMvcTest` slices
+8. **QualityCacheServiceTest**: 12 Mockito unit tests covering caching behavior, edge cases, eviction
 
 ## Phase 10+ — Future Phases
 - Phase 10: React frontend
