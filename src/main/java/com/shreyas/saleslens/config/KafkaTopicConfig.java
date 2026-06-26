@@ -15,4 +15,20 @@ public class KafkaTopicConfig {
                 .replicas(1)
                 .build();
     }
+
+    @Bean
+    public NewTopic salesLiveTopic() {
+        return TopicBuilder.name("sales.live")
+                .partitions(3)
+                .replicas(1)
+                .build();
+    }
+
+    @Bean
+    public NewTopic salesLiveDltTopic() {
+        return TopicBuilder.name("sales.live.DLT")
+                .partitions(1)
+                .replicas(1)
+                .build();
+    }
 }
