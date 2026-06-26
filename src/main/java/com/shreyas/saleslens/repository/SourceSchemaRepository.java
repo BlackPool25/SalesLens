@@ -1,6 +1,8 @@
 package com.shreyas.saleslens.repository;
 
 import com.shreyas.saleslens.model.SourceSchema;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
@@ -12,6 +14,7 @@ public interface SourceSchemaRepository extends JpaRepository<SourceSchema, UUID
     Optional<SourceSchema> findBySourceIdAndStatus(UUID sourceId, String status);
 
     List<SourceSchema> findBySourceIdOrderByVersionDesc(UUID sourceId);
+    Page<SourceSchema> findBySourceIdOrderByVersionDesc(UUID sourceId, Pageable pageable);
 
     Optional<SourceSchema> findTopBySourceIdOrderByVersionDesc(UUID sourceId);
 }
