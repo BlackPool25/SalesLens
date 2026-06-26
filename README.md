@@ -122,6 +122,130 @@ The JDBC connector enables scheduled or manual ingestion from relational databas
 
 ---
 
+## Phase 8 — Kafka Live Stream Connector
+
+Phase 8 introduces live sales event streaming via Kafka, enabling real-time ingestion of sales data from POS systems, e-commerce platforms, and other event sources. The stream consumer writes each event to the staging database immediately, then a scheduled processor groups events into time windows and runs the full pipeline (schema inference → quality engine → canonical load).
+
+### Architecture Overview
+
+```
+Kafka (sales.live) → LiveSalesEventConsumer → StagedRecord → StreamPipelineScheduler → PipelineCompletionHandler
+       │                      │                          │                            │
+       │               ┌──────┴──────┐                    │                     ┌──────┴──────┐
+       │               │ Source      │                    │                     │  Schema     │
+       │               │ Registry    │                    │                     │  Inference  │
+       │               │ (Cache)     │                    │                     ├─────────────┤
+       │               └─────────────┘                    │                     │  Quality    │
+       │                                                  │                     │  Engine     │
+       │               ┌───────────────┐                  │                     ├─────────────┤
+       │               │ Window Job    │                  │                     │  Canonical  │
+       │               │ Manager       │                  │                     │  Load       │
+       │               └───────────────┘                  │                     └─────────────┘
+       │                         │                        │
+  sales.live.DLT         30-second windows           Dedup via SHA-256
+  (Dead Letter Topic)                                 (source_id + hash)
+```
+
+### Message Schema
+
+Events must be valid JSON with the following required fields:
+
+```json
+{
+  "event_id": "550e8400-e29b-41d4-a716-446655440000",
+  "source_system": "pos_terminal_01",
+  "event_time": "2026-06-26T12:00:00Z",
+  "customer_ref": "C-9912",
+  "product_ref": "SKU-ALPHA-001",
+  "salesperson_ref": "SP-07",
+  "quantity": 5,
+  "unit_price": 49.99,
+  "total_amount": 249.95,
+  "currency": "USD",
+  "region": "East"
+}
+```
+
+Required fields: `event_id` (unique string), `source_system` (mapped to a DataSource), `event_time` (ISO-8601 timestamp). All other fields are optional and stored as-is in the raw payload.
+
+### Key Components
+
+| Component | Responsibility |
+|-----------|----------------|
+| `StreamKafkaConfig` | Custom `ConcurrentKafkaListenerContainerFactory` with `AckMode.RECORD`, per-message commits, DLT error handler (3 retries, 1s backoff) |
+| `KafkaTopicConfig` | Defines `sales.live` (3 partitions) and `sales.live.DLT` (1 partition) topics |
+| `KafkaSourceRegistryService` | Resolves `source_system` from Kafka messages to `DataSource` entities with a 5-minute volatile cache |
+| `StreamIngestionJobManager` | Manages per-source windowed `IngestionJob` lifecycle with `ReentrantReadWriteLock` for thread-safe rotation |
+| `LiveSalesEventConsumer` | `@KafkaListener` that deserializes JSON, validates required fields, resolves source, writes `StagedRecord` with SHA-256 dedup hash |
+| `StreamPipelineScheduler` | `@Scheduled` polling (default 30s) that rotates ready windows and triggers the full pipeline |
+| `V17__add_dedup_constraint_to_staged_records.sql` | Partial unique index on `(source_id, record_hash)` for idempotent deduplication |
+
+### Configuration
+
+```yaml
+saleslens:
+  batch:
+    streaming:
+      poll-interval-ms: 30000        # Scheduler polling interval
+      window-seconds: 30              # Time window for batching events
+      source-cache-ttl-ms: 300000    # Source system cache TTL (5 min)
+  kafka:
+    stream-topic: sales.live          # Kafka topic for live events
+    stream-group-id: saleslens-live   # Consumer group ID
+```
+
+### Offset Management
+
+- **At-least-once delivery**: Offsets committed only after successful DB write (`AckMode.RECORD` + `@Transactional`)
+- **Deduplication**: SHA-256 hash of raw message JSON, enforced by DB unique constraint — identical messages produce exactly one `StagedRecord`
+- **Consumer rebalance**: On rebalance, uncommitted offsets cause reprocessing; duplicates are discarded by the dedup constraint
+
+### Error Handling
+
+| Error | Handling |
+|-------|----------|
+| Invalid JSON / missing fields | `IllegalArgumentException` → 3 retries (1s backoff) → **Dead Letter Topic** (`sales.live.DLT`) |
+| Unknown `source_system` | `UnknownSourceException` → DLT |
+| Duplicate message | `DataIntegrityViolationException` caught → logged at WARN → message skipped |
+| Pipeline failure | Job marked `FAILED` with error message; records preserved for manual retry |
+
+### Testing
+
+```bash
+# 1. Install requirements
+pip install -r scripts/requirements-kafka.txt
+
+# 2. Start the full stack
+docker compose up -d --build
+
+# 3. Publish 100 test events
+python scripts/kafka_test_producer.py
+
+# Options:
+python scripts/kafka_test_producer.py --count 50           # Custom count
+python scripts/kafka_test_producer.py --count 5 --dry-run  # Dry run (no Kafka needed)
+```
+
+Run the embedded Kafka integration test (requires Postgres):
+```bash
+docker compose up -d postgres
+./mvnw test -Dgroups='kafka'
+```
+
+Exclude Kafka tests from fast suite:
+```bash
+./mvnw test -Dtest='!SaleslensApplicationTests' -Dgroups='!kafka'
+```
+
+### Current Limitations
+
+- Single topic (`sales.live`) — multi-source routing is via `source_system` message field
+- Window-based batching (default 30s) — not truly real-time; events wait for window closure
+- No dynamic consumer group or topic management
+- Failed pipeline windows require manual retry (no automatic reprocessing)
+
+---
+
 ## Getting Started
 
 ### Prerequisites
