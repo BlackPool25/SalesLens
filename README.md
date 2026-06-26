@@ -81,6 +81,47 @@ Phase 6 resolves multi-source conflicts and loads quality-verified records into 
 
 ---
 
+## Phase 7 - Excel and JDBC Connectors
+Phase 7 introduces support for Excel spreadsheets and relational databases as ingestion sources, expanding the platform beyond CSV files.
+
+### Excel Connector
+The Excel connector processes spreadsheet data using Spring Batch and Apache POI.
+* **How to Upload**: Send a `POST` request to `/api/v1/ingest/excel` with `multipart/form-data` containing the `file` and the `sourceId` (UUID).
+* **Supported Features**:
+  * Flat tabular data structures.
+  * Reads the first sheet only (index 0).
+  * Evaluates cell formulas automatically.
+  * Merged cells resolve to null values for all cells except the top-left cell.
+* **Limitations**:
+  * Only supports `.xlsx` files. Legacy `.xls` files are not supported.
+  * Loads the entire workbook into memory, which can cause issues with very large files.
+  * Doesn't support password-protected files or multiple sheets.
+
+### JDBC Connector
+The JDBC connector enables scheduled or manual ingestion from relational databases.
+* **How to Register**: Create a data source via `POST /datasources/create-source` with `sourceType` set to `JDBC_POSTGRES` or `JDBC_MYSQL`.
+* **Connection Configuration**: Provide a JSONB string in the `connectionConfig` field. The format is:
+  ```json
+  {
+    "jdbcUrl": "jdbc:postgresql://localhost:5432/mydb",
+    "user": "myuser",
+    "password": "encrypted_password_here",
+    "driverClassName": "org.postgresql.Driver",
+    "query": "SELECT * FROM sales_data"
+  }
+  ```
+* **Credential Encryption**: Database credentials in the connection configuration are encrypted at rest using AES-256. The encryption key is sourced from the `ENCRYPTION_KEY` environment variable.
+* **Cron Scheduling**: Set the `cronExpression` field (e.g., `0 0 * * * *` for hourly) when registering the data source.
+* **Scheduler**: A background scheduler polls active JDBC sources every 60 seconds by default. You can configure this interval using the `saleslens.batch.jdbc.poll-interval-ms` property.
+
+### REST API
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/v1/ingest/excel` | Upload an Excel file (`.xlsx`) via multipart form data |
+| POST | `/api/v1/ingest/jdbc/{sourceId}` | Manually trigger ingestion for a registered JDBC source |
+
+---
+
 ## Getting Started
 
 ### Prerequisites

@@ -41,6 +41,9 @@ public class DataSource {
     @Column(name = "connection_config", columnDefinition = "jsonb")
     private String connectionConfig;
 
+    @Column(name = "cron_expression")
+    private String cronExpression;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "created_by", nullable = false)
     private Users createdBy;

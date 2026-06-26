@@ -7,12 +7,16 @@ import com.shreyas.saleslens.service.ingestion.PipelineCompletionHandler;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.io.TempDir;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.batch.core.BatchStatus;
 import org.springframework.batch.core.job.JobExecution;
 import org.springframework.batch.core.job.parameters.JobParameters;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Collections;
 import java.util.Optional;
 import java.util.UUID;
@@ -20,7 +24,7 @@ import java.util.UUID;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
-class CsvIngestionJobListenerTest {
+class CsvIngestionJobListenerRegressionTest {
 
     @Mock
     private IngestionJobRepository ingestionJobRepository;
@@ -36,6 +40,9 @@ class CsvIngestionJobListenerTest {
     private UUID jobId;
 
     private IngestionJob job;
+
+    @TempDir
+    Path tempDir;
 
     @BeforeEach
     void setUp() {
@@ -69,5 +76,27 @@ class CsvIngestionJobListenerTest {
         listener.afterJob(jobExecution);
 
         verify(pipelineCompletionHandler, never()).runPipeline(any());
+    }
+
+    @Test
+    void afterJob_cleansUpTempFile() throws IOException {
+        Path tempFile = tempDir.resolve("test.csv");
+        Files.createFile(tempFile);
+        when(jobExecution.getStatus()).thenReturn(BatchStatus.COMPLETED);
+        when(jobExecution.getJobParameters().getString("filePath")).thenReturn(tempFile.toString());
+
+        listener.afterJob(jobExecution);
+
+        verify(pipelineCompletionHandler).runPipeline(jobId);
+    }
+
+    @Test
+    void afterJob_whenNoFilePath_doesNotThrow() {
+        when(jobExecution.getStatus()).thenReturn(BatchStatus.COMPLETED);
+        when(jobExecution.getJobParameters().getString("filePath")).thenReturn(null);
+
+        listener.afterJob(jobExecution);
+
+        verify(pipelineCompletionHandler).runPipeline(jobId);
     }
 }

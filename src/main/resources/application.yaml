@@ -46,6 +46,12 @@ spring:
       max-file-size: 50MB
       max-request-size: 55MB
 
+  task:
+    scheduling:
+      thread-name-prefix: "jdbc-scheduler-"
+      pool:
+        size: 4
+
 jwt:
   secret: ${JWT_SECRET}
   access-token-expiry: 900000
@@ -63,6 +69,11 @@ langchain4j:
 saleslens:
   batch:
     chunk-size: 50
+    jdbc:
+      poll-interval-ms: 60000
+  encryption:
+    key: ${ENCRYPTION_KEY:change-me-in-production}
+    salt: ${ENCRYPTION_SALT:deadbeefdeadbeef}
 
 #logging:
 #  level:

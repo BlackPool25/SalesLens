@@ -2,9 +2,7 @@ package com.shreyas.saleslens.batch.csv;
 
 import com.shreyas.saleslens.model.enums.JobStatus;
 import com.shreyas.saleslens.repository.IngestionJobRepository;
-import com.shreyas.saleslens.service.inference.SchemaInferenceService;
-import com.shreyas.saleslens.service.canonical.CanonicalLoadService;
-import com.shreyas.saleslens.service.quality.QualityEngineService;
+import com.shreyas.saleslens.service.ingestion.PipelineCompletionHandler;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.batch.core.BatchStatus;
@@ -24,9 +22,7 @@ import java.util.UUID;
 public class CsvIngestionJobListener implements JobExecutionListener {
 
     private final IngestionJobRepository ingestionJobRepository;
-    private final SchemaInferenceService schemaInferenceService;
-    private final CanonicalLoadService canonicalLoadService;
-    private final QualityEngineService qualityEngineService;
+    private final PipelineCompletionHandler pipelineCompletionHandler;
 
     @Override
     public void beforeJob(JobExecution jobExecution) {
@@ -78,23 +74,7 @@ public class CsvIngestionJobListener implements JobExecutionListener {
             ingestionJobRepository.save(job);
 
             if (job.getStatus() == JobStatus.COMPLETED) {
-                try {
-                    schemaInferenceService.runInference(ingestionJobId);
-                } catch (Exception e) {
-                    log.warn("Schema inference failed for job {}: {}", ingestionJobId, e.getMessage());
-                }
-
-                try {
-                    qualityEngineService.runQualityEngine(ingestionJobId);
-                } catch (Exception e) {
-                    log.error("Quality Engine failed for job {}: {}", ingestionJobId, e.getMessage(), e);
-                }
-
-                try {
-                    canonicalLoadService.loadCanonical(ingestionJobId);
-                } catch (Exception e) {
-                    log.error("Canonical load failed for job {}: {}", ingestionJobId, e.getMessage(), e);
-                }
+                pipelineCompletionHandler.runPipeline(ingestionJobId);
             }
 
             log.info("Ingestion job {} finished: status={} read={} wrote={}",

@@ -1,4 +1,4 @@
-package com.shreyas.saleslens.batch.csv;
+package com.shreyas.saleslens.batch.excel;
 
 import com.shreyas.saleslens.model.DataSource;
 import com.shreyas.saleslens.model.IngestionJob;
@@ -8,24 +8,22 @@ import com.shreyas.saleslens.repository.IngestionJobRepository;
 import com.shreyas.saleslens.service.ingestion.StagedRecordHelper;
 import org.springframework.batch.core.configuration.annotation.StepScope;
 import org.springframework.batch.infrastructure.item.ItemProcessor;
-import org.springframework.batch.infrastructure.item.file.transform.FieldSet;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
-import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 
 @Component
 @StepScope
-public class CsvItemProcessor implements ItemProcessor<FieldSet, StagedRecord> {
+public class ExcelItemProcessor implements ItemProcessor<Map<String, String>, StagedRecord> {
 
     private final IngestionJob jobRef;
     private final DataSource sourceRef;
     private final AtomicInteger rowCounter = new AtomicInteger(1);
 
-    public CsvItemProcessor(
+    public ExcelItemProcessor(
             IngestionJobRepository ingestionJobRepository,
             DataSourceRepository dataSourceRepository,
             @Value("#{jobParameters['ingestionJobId']}") String ingestionJobId,
@@ -35,14 +33,7 @@ public class CsvItemProcessor implements ItemProcessor<FieldSet, StagedRecord> {
     }
 
     @Override
-    public StagedRecord process(FieldSet fieldSet) {
-        Map<String, String> row = new LinkedHashMap<>();
-        String[] names = fieldSet.getNames();
-        for (int i = 0; i < names.length; i++) {
-            String value = fieldSet.readString(i);
-            row.put(names[i], value.isEmpty() ? null : value);
-        }
-
+    public StagedRecord process(Map<String, String> row) {
         return StagedRecordHelper.toStagedRecord(jobRef, sourceRef, rowCounter.getAndIncrement(), row);
     }
 }
