@@ -54,7 +54,7 @@ class SchemaManagementControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithMockUser(roles = "ADMIN")
     void testPromoteAttribute_Success() throws Exception {
         SchemaPromoteRequest request = new SchemaPromoteRequest();
         request.setEntityName("orders");
@@ -71,7 +71,7 @@ class SchemaManagementControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithMockUser(roles = "ADMIN")
     void testPromoteAttribute_InvalidEntityName() throws Exception {
         SchemaPromoteRequest request = new SchemaPromoteRequest();
         request.setEntityName("orders; DROP TABLE canonical.orders; --");
@@ -88,7 +88,7 @@ class SchemaManagementControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithMockUser(roles = "ADMIN")
     void testDemoteColumn_Success() throws Exception {
         SchemaDemoteRequest request = new SchemaDemoteRequest();
         request.setEntityName("orders");
@@ -101,5 +101,21 @@ class SchemaManagementControllerTest {
                 .andExpect(status().isOk());
 
         verify(schemaManagementService).demoteColumn("orders", "discount");
+    }
+
+    @Test
+    void testPromoteAttribute_withoutAdminRole_returns403() throws Exception {
+        SchemaPromoteRequest request = new SchemaPromoteRequest();
+        request.setEntityName("orders");
+        request.setAttributeKey("discount");
+        request.setDataType("DECIMAL");
+
+        mockMvc.perform(post("/api/v1/schema/promote")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request))
+                        .with(csrf()))
+                .andExpect(status().isForbidden());
+
+        verify(schemaManagementService, never()).promoteAttribute(any(), any(), any());
     }
 }

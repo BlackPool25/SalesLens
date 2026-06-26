@@ -3,35 +3,37 @@ package com.shreyas.saleslens.controller;
 import com.shreyas.saleslens.model.IngestionJob;
 import com.shreyas.saleslens.repository.IngestionJobRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import org.springframework.transaction.annotation.Transactional;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/v1/jobs")
 @RequiredArgsConstructor
-@Transactional(readOnly = true)
+@PreAuthorize("hasAnyRole('ADMIN', 'ANALYST')")
 public class JobController {
 
     private final IngestionJobRepository ingestionJobRepository;
 
     @GetMapping
-    public List<Map<String, Object>> getAllJobs() {
-        return ingestionJobRepository.findAll().stream()
-                .map(JobController::toResponse)
-                .collect(Collectors.toList());
+    @Transactional(readOnly = true)
+    public Page<Map<String, Object>> getAllJobs(@PageableDefault(size = 20, sort = "createdAt") Pageable pageable) {
+        return ingestionJobRepository.findAll(pageable).map(JobController::toResponse);
     }
 
     @GetMapping("/{id}")
+    @Transactional(readOnly = true)
     public ResponseEntity<Map<String, Object>> getJob(@PathVariable UUID id) {
         return ingestionJobRepository.findById(id)
                 .map(JobController::toResponse)

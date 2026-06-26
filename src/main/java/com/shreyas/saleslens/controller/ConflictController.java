@@ -10,22 +10,21 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/v1/conflicts")
 @RequiredArgsConstructor
 @Slf4j
 @Transactional(readOnly = true)
+@PreAuthorize("hasAnyRole('ADMIN', 'ANALYST')")
 public class ConflictController {
 
     private final ConflictResolutionService conflictResolutionService;
@@ -42,20 +41,8 @@ public class ConflictController {
         log.info("Listing conflicts with filters: entityType={}, fieldName={}, status={}, sourceId={}",
                 entityType, fieldName, status, sourceId);
 
-        Page<ConflictRecord> records = conflictRecordRepository.findAll(pageable);
-
-        // Apply in-memory filtering if any filters are specified
-        if (entityType != null || fieldName != null || status != null || sourceId != null) {
-            List<ConflictRecord> filtered = records.getContent().stream()
-                    .filter(r -> entityType == null || entityType.equals(r.getEntityType()))
-                    .filter(r -> fieldName == null || fieldName.equals(r.getFieldName()))
-                    .filter(r -> status == null || status == r.getStatus())
-                    .filter(r -> sourceId == null
-                            || (r.getSourceA() != null && sourceId.equals(r.getSourceA().getId()))
-                            || (r.getSourceB() != null && sourceId.equals(r.getSourceB().getId())))
-                    .collect(Collectors.toList());
-            records = new PageImpl<>(filtered, pageable, filtered.size());
-        }
+        Page<ConflictRecord> records = conflictRecordRepository.findFiltered(
+                entityType, fieldName, status, sourceId, pageable);
 
         Page<ConflictRecordDto> dtoPage = records.map(this::toDto);
         return ResponseEntity.ok(dtoPage);

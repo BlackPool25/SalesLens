@@ -5,31 +5,34 @@ import com.shreyas.saleslens.model.FieldMapping;
 import com.shreyas.saleslens.repository.FieldMappingRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/v1/sources/{sourceId}/mappings")
 @RequiredArgsConstructor
 @Slf4j
 @Transactional
+@PreAuthorize("hasAnyRole('ADMIN', 'ANALYST')")
 public class MappingController {
 
     private final FieldMappingRepository fieldMappingRepository;
 
     @GetMapping
     @Transactional(readOnly = true)
-    public ResponseEntity<List<FieldMappingResponse>> getFieldMappings(@PathVariable UUID sourceId) {
+    public ResponseEntity<Page<FieldMappingResponse>> getFieldMappings(
+            @PathVariable UUID sourceId,
+            @PageableDefault(size = 20) Pageable pageable) {
         log.info("Fetching field mappings for sourceId: {}", sourceId);
-        List<FieldMapping> mappings = fieldMappingRepository.findBySourceId(sourceId);
-        List<FieldMappingResponse> responses = mappings.stream()
-                .map(this::toResponse)
-                .collect(Collectors.toList());
+        Page<FieldMappingResponse> responses = fieldMappingRepository.findBySourceId(sourceId, pageable)
+                .map(this::toResponse);
         return ResponseEntity.ok(responses);
     }
 

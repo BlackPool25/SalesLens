@@ -17,6 +17,10 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
+
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
@@ -57,7 +61,7 @@ class MappingControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithMockUser(roles = "ADMIN")
     void testGetFieldMappings() throws Exception {
         UUID sourceId = UUID.randomUUID();
         DataSource source = new DataSource();
@@ -72,18 +76,22 @@ class MappingControllerTest {
         m.setConfidence(BigDecimal.valueOf(1.00));
         m.setStatus("AUTO_CONFIRMED");
 
-        when(fieldMappingRepository.findBySourceId(sourceId)).thenReturn(List.of(m));
+        Page<FieldMapping> page = new PageImpl<>(List.of(m));
+        when(fieldMappingRepository.findBySourceId(sourceId, any(Pageable.class))).thenReturn(page);
 
-        mockMvc.perform(get("/api/v1/sources/{sourceId}/mappings", sourceId))
+        mockMvc.perform(get("/api/v1/sources/{sourceId}/mappings", sourceId)
+                        .param("page", "0")
+                        .param("size", "20"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].sourceFieldName").value("Sales"))
-                .andExpect(jsonPath("$[0].canonicalEntity").value("orders"))
-                .andExpect(jsonPath("$[0].canonicalField").value("total_amount"))
-                .andExpect(jsonPath("$[0].status").value("AUTO_CONFIRMED"));
+                .andExpect(jsonPath("$.content[0].sourceFieldName").value("Sales"))
+                .andExpect(jsonPath("$.content[0].canonicalEntity").value("orders"))
+                .andExpect(jsonPath("$.content[0].canonicalField").value("total_amount"))
+                .andExpect(jsonPath("$.content[0].status").value("AUTO_CONFIRMED"))
+                .andExpect(jsonPath("$.totalElements").value(1));
     }
 
     @Test
-    @WithMockUser
+    @WithMockUser(roles = "ADMIN")
     void testConfirmMapping() throws Exception {
         UUID sourceId = UUID.randomUUID();
         UUID mappingId = UUID.randomUUID();
@@ -109,7 +117,7 @@ class MappingControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithMockUser(roles = "ADMIN")
     void testOverrideMapping() throws Exception {
         UUID sourceId = UUID.randomUUID();
         UUID mappingId = UUID.randomUUID();
@@ -139,7 +147,7 @@ class MappingControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithMockUser(roles = "ADMIN")
     void testIgnoreMapping() throws Exception {
         UUID sourceId = UUID.randomUUID();
         UUID mappingId = UUID.randomUUID();
@@ -165,7 +173,7 @@ class MappingControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithMockUser(roles = "ADMIN")
     void testMappingNotFound() throws Exception {
         UUID sourceId = UUID.randomUUID();
         UUID mappingId = UUID.randomUUID();

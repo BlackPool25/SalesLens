@@ -8,7 +8,11 @@ import com.shreyas.saleslens.model.SourceSchemaField;
 import com.shreyas.saleslens.repository.SourceSchemaFieldRepository;
 import com.shreyas.saleslens.repository.SourceSchemaRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -24,6 +28,7 @@ import java.util.stream.Collectors;
 @RequestMapping("/api/v1/sources/{sourceId}/schema")
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
+@PreAuthorize("hasAnyRole('ADMIN', 'ANALYST')")
 public class SchemaController {
 
     private final SourceSchemaRepository sourceSchemaRepository;
@@ -39,11 +44,12 @@ public class SchemaController {
     }
 
     @GetMapping("/drift")
-    public ResponseEntity<List<SchemaResponse>> getSchemaHistory(@PathVariable UUID sourceId) {
-        List<SourceSchema> schemas = sourceSchemaRepository.findBySourceIdOrderByVersionDesc(sourceId);
-        List<SchemaResponse> responses = schemas.stream()
-                .map(this::toResponse)
-                .toList();
+    public ResponseEntity<Page<SchemaResponse>> getSchemaHistory(
+            @PathVariable UUID sourceId,
+            @PageableDefault(size = 20) Pageable pageable) {
+        Page<SchemaResponse> responses = sourceSchemaRepository
+                .findBySourceIdOrderByVersionDesc(sourceId, pageable)
+                .map(this::toResponse);
         return ResponseEntity.ok(responses);
     }
 

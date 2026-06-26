@@ -58,7 +58,7 @@ class IngestionControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithMockUser(roles = "ADMIN")
     void uploadExcel_validFile_returns202() throws Exception {
         UUID jobId = UUID.randomUUID();
         UUID sourceId = UUID.randomUUID();
@@ -82,7 +82,7 @@ class IngestionControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithMockUser(roles = "ADMIN")
     void uploadExcel_csvFile_returns400() throws Exception {
         UUID sourceId = UUID.randomUUID();
         MockMultipartFile file = new MockMultipartFile(
@@ -101,7 +101,7 @@ class IngestionControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithMockUser(roles = "ADMIN")
     void uploadExcel_noFile_returns400() throws Exception {
         UUID sourceId = UUID.randomUUID();
 
@@ -112,7 +112,7 @@ class IngestionControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithMockUser(roles = "ADMIN")
     void uploadExcel_nonExistentSource_returns500() {
         UUID sourceId = UUID.randomUUID();
         MockMultipartFile file = new MockMultipartFile(
@@ -135,7 +135,7 @@ class IngestionControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithMockUser(roles = "ADMIN")
     void triggerJdbc_validSource_returns202() throws Exception {
         UUID jobId = UUID.randomUUID();
         UUID sourceId = UUID.randomUUID();
@@ -151,7 +151,7 @@ class IngestionControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithMockUser(roles = "ADMIN")
     void triggerJdbc_orchestratorThrows_throwsServletException() {
         UUID sourceId = UUID.randomUUID();
 
@@ -166,7 +166,7 @@ class IngestionControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithMockUser(roles = "ADMIN")
     void triggerJdbc_inactiveSource_returns500() {
         UUID sourceId = UUID.randomUUID();
 
@@ -181,7 +181,7 @@ class IngestionControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithMockUser(roles = "ADMIN")
     void triggerJdbc_nonJdbcSource_returns500() {
         UUID sourceId = UUID.randomUUID();
 
@@ -193,5 +193,23 @@ class IngestionControllerTest {
                         .with(csrf()))
         );
         assertInstanceOf(IllegalArgumentException.class, ex.getRootCause());
+    }
+
+    @Test
+    @WithMockUser
+    void uploadCsv_withoutAdminRole_returns403() throws Exception {
+        UUID sourceId = UUID.randomUUID();
+        MockMultipartFile file = new MockMultipartFile(
+                "file",
+                "data.csv",
+                "text/csv",
+                "col1,col2\n1,2".getBytes()
+        );
+
+        mockMvc.perform(multipart("/api/v1/ingest/csv")
+                        .file(file)
+                        .param("sourceId", sourceId.toString())
+                        .with(csrf()))
+                .andExpect(status().isForbidden());
     }
 }

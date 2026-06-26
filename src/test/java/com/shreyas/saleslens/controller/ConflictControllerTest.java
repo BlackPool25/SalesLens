@@ -91,11 +91,11 @@ class ConflictControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithMockUser(roles = "ADMIN")(roles = "ADMIN")
     void testListConflicts() throws Exception {
         ConflictRecord record = createTestRecord();
 
-        when(conflictRecordRepository.findAll(any(Pageable.class)))
+        when(conflictRecordRepository.findFiltered(isNull(), isNull(), isNull(), isNull(), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(record), PageRequest.of(0, 20), 1));
 
         mockMvc.perform(get("/api/v1/conflicts"))
@@ -109,7 +109,7 @@ class ConflictControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithMockUser(roles = "ADMIN")
     void testGetConflictById() throws Exception {
         ConflictRecord record = createTestRecord();
 
@@ -125,7 +125,7 @@ class ConflictControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithMockUser(roles = "ADMIN")(roles = "ADMIN")
     void testGetConflictById_NotFound() throws Exception {
         UUID id = UUID.randomUUID();
 
@@ -137,7 +137,7 @@ class ConflictControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithMockUser(roles = "ADMIN")
     void testResolveConflict() throws Exception {
         ConflictRecord record = createTestRecord();
         String chosenValue = "john@example.com";
@@ -157,7 +157,7 @@ class ConflictControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithMockUser(roles = "ADMIN")(roles = "ADMIN")
     void testResolveConflict_NotFound() throws Exception {
         UUID id = UUID.randomUUID();
         String json = "{\"chosenValue\":\"value\"}";
@@ -173,7 +173,7 @@ class ConflictControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithMockUser(roles = "ADMIN")
     void testSuppressConflict() throws Exception {
         ConflictRecord record = createTestRecord();
 
@@ -189,7 +189,7 @@ class ConflictControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithMockUser(roles = "ADMIN")(roles = "ADMIN")
     void testSuppressConflict_NotFound() throws Exception {
         UUID id = UUID.randomUUID();
 

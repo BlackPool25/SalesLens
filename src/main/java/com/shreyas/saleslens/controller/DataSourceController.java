@@ -6,16 +6,20 @@ import com.shreyas.saleslens.security.UserPrincipal;
 import com.shreyas.saleslens.service.DataSourceService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/datasources")
+@PreAuthorize("hasAnyRole('ADMIN', 'ANALYST')")
 public class DataSourceController {
 
     private final DataSourceService dataSourceService;
@@ -29,8 +33,8 @@ public class DataSourceController {
     }
 
     @GetMapping("/get-all-sources")
-    public List<DataSourceResponse> getAllSources() {
-        return dataSourceService.getAllSources();
+    public Page<DataSourceResponse> getAllSources(@PageableDefault(size = 20, sort = "createdAt") Pageable pageable) {
+        return dataSourceService.getAllSources(pageable);
     }
 
     @GetMapping("/get-by-id")
@@ -39,7 +43,7 @@ public class DataSourceController {
     }
 
     @GetMapping("/get-by-user")
-    public List<DataSourceResponse> getByUser(@RequestParam Long id) {
-        return dataSourceService.getByUser(id);
+    public Page<DataSourceResponse> getByUser(@RequestParam Long id, @PageableDefault(size = 20) Pageable pageable) {
+        return dataSourceService.getByUser(id, pageable);
     }
 }

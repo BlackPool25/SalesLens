@@ -15,18 +15,18 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/v1/quality")
 @RequiredArgsConstructor
 @Slf4j
 @Transactional
+@PreAuthorize("hasAnyRole('ADMIN', 'ANALYST')")
 public class QualityController {
 
     private final QualityIssueRepository qualityIssueRepository;
@@ -52,13 +52,14 @@ public class QualityController {
 
     @GetMapping("/scores")
     @Transactional(readOnly = true)
-    public ResponseEntity<List<QualityScoreDto>> getScores(@RequestParam UUID sourceId) {
+    public ResponseEntity<Page<QualityScoreDto>> getScores(
+            @RequestParam UUID sourceId,
+            @PageableDefault(size = 20, sort = "createdAt") Pageable pageable) {
         log.info("Fetching historical quality scores for sourceId: {}", sourceId);
-        List<QualityScore> scores = qualityScoreRepository.findBySourceIdOrderByCreatedAtDesc(sourceId);
-        List<QualityScoreDto> dtos = scores.stream()
-                .map(this::mapScoreToDto)
-                .collect(Collectors.toList());
-        return ResponseEntity.ok(dtos);
+        Page<QualityScoreDto> dtoPage = qualityScoreRepository
+                .findBySourceIdOrderByCreatedAtDesc(sourceId, pageable)
+                .map(this::mapScoreToDto);
+        return ResponseEntity.ok(dtoPage);
     }
 
     @PutMapping("/issues/{issueId}/acknowledge")

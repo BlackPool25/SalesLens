@@ -14,6 +14,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -71,7 +72,7 @@ class QualityControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithMockUser(roles = "ADMIN")
     void testGetIssues() throws Exception {
         UUID sourceId = UUID.randomUUID();
         QualityRun run = new QualityRun();
@@ -111,7 +112,7 @@ class QualityControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithMockUser(roles = "ADMIN")
     void testGetScores() throws Exception {
         UUID sourceId = UUID.randomUUID();
         IngestionJob job = new IngestionJob();
@@ -132,19 +133,20 @@ class QualityControllerTest {
         score.setScoreOverall(BigDecimal.valueOf(0.9550));
         score.setLetterGrade("A");
 
-        when(qualityScoreRepository.findBySourceIdOrderByCreatedAtDesc(sourceId))
-                .thenReturn(List.of(score));
+        when(qualityScoreRepository.findBySourceIdOrderByCreatedAtDesc(eq(sourceId), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(score), PageRequest.of(0, 20), 1));
 
         mockMvc.perform(get("/api/v1/quality/scores")
                         .param("sourceId", sourceId.toString()))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].scoreOverall").value(0.9550))
-                .andExpect(jsonPath("$[0].letterGrade").value("A"))
-                .andExpect(jsonPath("$[0].scoreValidity").value(0.9500));
+                .andExpect(jsonPath("$.content[0].scoreOverall").value(0.9550))
+                .andExpect(jsonPath("$.content[0].letterGrade").value("A"))
+                .andExpect(jsonPath("$.content[0].scoreValidity").value(0.9500))
+                .andExpect(jsonPath("$.totalElements").value(1));
     }
 
     @Test
-    @WithMockUser
+    @WithMockUser(roles = "ADMIN")
     void testAcknowledgeIssue() throws Exception {
         UUID issueId = UUID.randomUUID();
         QualityIssue issue = new QualityIssue();
