@@ -23,22 +23,31 @@ public class CanonicalSalesperson {
     @Column(name = "external_refs", columnDefinition = "jsonb")
     private String externalRefs;
 
+    @Column(name = "name")
     private String name;
+
+    @Column(name = "email")
     private String email;
+
+    @Column(name = "team")
     private String team;
+
+    @Column(name = "territory")
     private String territory;
+
+    @Column(name = "region")
     private String region;
 
-    @Column(nullable = false)
+    @Column(name = "active", nullable = false)
     private Boolean active = true;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "primary_source")
-    private DataSource primarySource;
 
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "additional_attributes", columnDefinition = "jsonb")
     private String additionalAttributes;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "primary_source")
+    private DataSource primarySource;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;

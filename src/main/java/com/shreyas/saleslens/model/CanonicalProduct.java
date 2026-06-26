@@ -24,8 +24,13 @@ public class CanonicalProduct {
     @Column(name = "external_refs", columnDefinition = "jsonb")
     private String externalRefs;
 
+    @Column(name = "sku")
     private String sku;
+
+    @Column(name = "name")
     private String name;
+
+    @Column(name = "category")
     private String category;
 
     @Column(name = "sub_category")
@@ -34,10 +39,15 @@ public class CanonicalProduct {
     @Column(name = "unit_price", precision = 12, scale = 4)
     private BigDecimal unitPrice;
 
+    @Column(name = "currency")
     private String currency;
 
-    @Column(nullable = false)
+    @Column(name = "active", nullable = false)
     private Boolean active = true;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "additional_attributes", columnDefinition = "jsonb")
+    private String additionalAttributes;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "primary_source")
@@ -48,10 +58,6 @@ public class CanonicalProduct {
 
     @Column(name = "has_conflicts", nullable = false)
     private Boolean hasConflicts = false;
-
-    @JdbcTypeCode(SqlTypes.JSON)
-    @Column(name = "additional_attributes", columnDefinition = "jsonb")
-    private String additionalAttributes;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;

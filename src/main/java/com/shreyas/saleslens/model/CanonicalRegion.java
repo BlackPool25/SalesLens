@@ -17,10 +17,13 @@ public class CanonicalRegion {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @Column(nullable = false)
+    @Column(name = "name", nullable = false)
     private String name;
 
+    @Column(name = "country")
     private String country;
+
+    @Column(name = "zone")
     private String zone;
 
     @Column(name = "created_at", nullable = false, updatable = false)

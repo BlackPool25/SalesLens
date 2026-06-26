@@ -24,13 +24,30 @@ public class CanonicalCustomer {
     @Column(name = "external_refs", columnDefinition = "jsonb")
     private String externalRefs;
 
+    @Column(name = "name")
     private String name;
+
+    @Column(name = "email")
     private String email;
+
+    @Column(name = "phone")
     private String phone;
+
+    @Column(name = "segment")
     private String segment;
+
+    @Column(name = "region")
     private String region;
+
+    @Column(name = "country")
     private String country;
+
+    @Column(name = "city")
     private String city;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "additional_attributes", columnDefinition = "jsonb")
+    private String additionalAttributes;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "primary_source")
@@ -41,10 +58,6 @@ public class CanonicalCustomer {
 
     @Column(name = "has_conflicts", nullable = false)
     private Boolean hasConflicts = false;
-
-    @JdbcTypeCode(SqlTypes.JSON)
-    @Column(name = "additional_attributes", columnDefinition = "jsonb")
-    private String additionalAttributes;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
