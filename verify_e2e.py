@@ -274,14 +274,116 @@ def main():
     
     v2_fields = {f["fieldName"]: f["inferredType"] for f in v2_schema.get("fields", [])}
     assert "Sales" not in v2_fields, "Expected 'Sales' field to be removed in version 2 schema"
+    assert v2_fields.get("Ship Mode") == "CATEGORY", f"Expected Ship Mode to be CATEGORY, got {v2_fields.get('Ship Mode')}"
+
+    # 10. Test Phase 5 Quality Engine and REST Endpoints
+    print("=== STARTING PHASE 5 QUALITY ENGINE E2E CHECKS ===")
+    csv_v3_path = "superstore_v3.csv"
+    with open(csv_v3_path, "w") as f:
+        f.write("Row ID,Customer Name,Ship Mode,Order Date,Sales,Country,Currency\n")
+        f.write("1,Acme Corp,Standard Class,2024-03-15,100.00,US,USD\n")          # Valid
+        f.write("2,,Standard Class,2024-03-15,200.00,US,USD\n")                  # Empty Customer Name (CRITICAL Completeness)
+        f.write("3,Globex,First Class,2024-03-15,-50.00,US,USD\n")                 # Negative Sales (HIGH Validity)
+        f.write("4,Initech,Second Class,2010-01-01,150.00,US,USD\n")               # Stale Date (MEDIUM Timeliness)
+        f.write("5,Umbrella,Standard Class,2024-03-15,300.00,Atlantis,XYZ\n")      # Invalid Country/Currency (LOW Accuracy)
+
+    print(f"Generated {csv_v3_path} with deliberate quality issues.")
+
+    # Ingest CSV v3
+    print("Uploading CSV v3 for ingestion...")
+    with open(csv_v3_path, "rb") as f:
+        files = {"file": (os.path.basename(csv_v3_path), f, "text/csv")}
+        params = {"sourceId": source_id}
+        ingest_resp = requests.post(f"{BASE_URL}/api/v1/ingest/csv", files=files, data=params, headers=headers)
+
+    if ingest_resp.status_code not in (200, 202, 201):
+        print("Ingestion upload v3 failed:", ingest_resp.status_code, ingest_resp.text)
+        return
+
+    job_id_v3 = ingest_resp.json()["jobId"]
+    print(f"Ingestion job v3 started with ID: {job_id_v3}")
+
+    # Poll Ingestion Job v3
+    job_completed = False
+    for attempt in range(15):
+        print(f"Polling job v3 status (attempt {attempt+1})...")
+        job_resp = requests.get(f"{BASE_URL}/api/v1/jobs/{job_id_v3}", headers=headers)
+        if job_resp.status_code == 200:
+            job_status = job_resp.json().get("status")
+            print(f"Job Status: {job_status}")
+            if job_status == "COMPLETED":
+                job_completed = True
+                break
+            elif job_status in ("FAILED", "ABORTED"):
+                print("Job v3 failed or was aborted:", job_resp.text)
+                return
+        time.sleep(2)
+
+    if not job_completed:
+        print("Job v3 did not complete in time.")
+        return
+
+    time.sleep(2)  # Give Quality Engine time to finish updates
+
+    # A. Retrieve Quality Issues
+    print("Querying quality issues endpoint...")
+    issues_resp = requests.get(
+        f"{BASE_URL}/api/v1/quality/issues",
+        params={"sourceId": source_id, "status": "OPEN"},
+        headers=headers
+    )
+    if issues_resp.status_code != 200:
+        print("Retrieve quality issues failed:", issues_resp.text)
+        return
+
+    issues_data = issues_resp.json()
+    issues_list = issues_data.get("content", [])
+    print(f"Retrieved {len(issues_list)} open issues.")
+    print(json.dumps(issues_data, indent=2))
+
+    # Assert that we captured the expected issues
+    assert len(issues_list) >= 1, "Expected at least one quality issue to be recorded"
     
+    # Check if there is an empty customer name completeness issue
+    has_completeness_issue = any(i["ruleCode"] == "COMPLETENESS_CUSTOMER_NAME" for i in issues_list)
+    print("Has COMPLETENESS_CUSTOMER_NAME issue:", has_completeness_issue)
+
+    # Let's find one issue to acknowledge
+    target_issue = issues_list[0]
+    issue_id = target_issue["id"]
+    print(f"Acknowledging issue {issue_id}...")
+    ack_resp = requests.put(f"{BASE_URL}/api/v1/quality/issues/{issue_id}/acknowledge", headers=headers)
+    if ack_resp.status_code != 200:
+        print("Acknowledge issue failed:", ack_resp.text)
+        return
+    ack_data = ack_resp.json()
+    assert ack_data["status"] == "ACKNOWLEDGED", f"Expected ACKNOWLEDGED, got {ack_data['status']}"
+    print("Issue acknowledged successfully.")
+
+    # B. Retrieve Quality Scores
+    print("Querying quality scores trend endpoint...")
+    scores_resp = requests.get(f"{BASE_URL}/api/v1/quality/scores", params={"sourceId": source_id}, headers=headers)
+    if scores_resp.status_code != 200:
+        print("Retrieve quality scores failed:", scores_resp.text)
+        return
+
+    scores_list = scores_resp.json()
+    print(f"Retrieved {len(scores_list)} historical scores.")
+    print(json.dumps(scores_list, indent=2))
+
+    assert len(scores_list) >= 1, "Expected at least one score trend entry"
+    latest_score = scores_list[0]
+    print(f"Latest Ingestion Job overall score: {latest_score['scoreOverall']}, grade: {latest_score['letterGrade']}")
+
     print("=== ALL E2E VERIFICATION CHECKS PASSED SUCCESSFULLY! ===")
-    
+
     # Cleanup temp files
     if os.path.exists(csv_v1_path):
         os.remove(csv_v1_path)
     if os.path.exists(csv_v2_path):
         os.remove(csv_v2_path)
+    if os.path.exists(csv_v3_path):
+        os.remove(csv_v3_path)
 
 if __name__ == "__main__":
     main()

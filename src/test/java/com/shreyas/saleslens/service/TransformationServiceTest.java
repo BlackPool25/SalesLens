@@ -56,11 +56,12 @@ class TransformationServiceTest {
         Map<String, String> result = transformationService.transform(record, mappings);
 
         // Assert size
-        assertEquals(2, result.size());
+        assertEquals(3, result.size());
 
         // Assert key-value mappings
         assertEquals("123.45", result.get("order.total_amount"));
         assertEquals("1", result.get("customer.name"));
+        assertEquals("{\"sku\":\"bar\"}", result.get("product.additional_attributes"));
 
         // Assert skipped items are not present
         assertFalse(result.containsKey("product.sku"));
