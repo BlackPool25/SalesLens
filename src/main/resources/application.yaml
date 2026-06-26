@@ -82,6 +82,13 @@ saleslens:
     stream-topic: sales.live
     stream-group-id: saleslens-live
 
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operationsSorter: method
+
 #logging:
 #  level:
 #    org.apache.kafka.clients.consumer: DEBUG
