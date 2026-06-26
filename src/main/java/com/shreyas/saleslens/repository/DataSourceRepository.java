@@ -12,4 +12,6 @@ public interface DataSourceRepository extends JpaRepository<DataSource, UUID> {
     List<DataSource> findByCreatedBy(Users createdBy);
 
     List<DataSource> findBySourceTypeInAndActive(List<SourceType> sourceTypes, boolean active);
+
+    List<DataSource> findBySourceTypeAndActive(SourceType sourceType, boolean active);
 }
