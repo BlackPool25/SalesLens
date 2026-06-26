@@ -29,6 +29,9 @@ public class CsvIngestionJobConfig {
     private final StagingItemWriter stagingItemWriter;
     private final CsvIngestionJobListener jobListener;
 
+    @Value("${saleslens.batch.chunk-size:50}")
+    private int chunkSize;
+
     @Bean
     public Job csvIngestionJob() {
         return new JobBuilder("csvIngestionJob", jobRepository)
@@ -40,7 +43,7 @@ public class CsvIngestionJobConfig {
     @Bean
     public Step csvIngestionStep() {
         return new StepBuilder("csvIngestionStep", jobRepository)
-                .<FieldSet, StagedRecord>chunk(50)
+                .<FieldSet, StagedRecord>chunk(chunkSize)
                 .transactionManager(transactionManager)
                 .reader(csvReader(null))
                 .processor(csvItemProcessor)
