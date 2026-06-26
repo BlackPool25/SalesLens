@@ -61,6 +61,9 @@ class LiveSalesEventConsumerIntegrationTest {
     @MockitoBean
     private LettuceConnectionFactory redisConnectionFactory;
 
+    @MockitoBean
+    private StreamPipelineScheduler streamPipelineScheduler;
+
     private com.shreyas.saleslens.model.DataSource testSource;
     private IngestionJob testJob;
 
