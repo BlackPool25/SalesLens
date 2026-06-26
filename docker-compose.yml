@@ -12,6 +12,11 @@ services:
         condition: service_started
       kafka: # Fixed casing to match lowercase
         condition: service_healthy # Changed to wait until Kafka is fully ready
+    environment:
+      OLLAMA_BASE_URL: http://host.docker.internal:11434
+      OLLAMA_MODEL_NAME: qwen3.5:9b
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
   postgres:
     image: postgres:alpine

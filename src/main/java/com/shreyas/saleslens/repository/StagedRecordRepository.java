@@ -13,4 +13,11 @@ public interface StagedRecordRepository extends JpaRepository<StagedRecord, UUID
 
     @Query("SELECT r FROM StagedRecord r WHERE r.job.id = :jobId")
     List<StagedRecord> findByJobId(@Param("jobId") UUID jobId, Pageable pageable);
+
+    /** Unbounded lookup for quality engine processing. */
+    @Query("SELECT r FROM StagedRecord r WHERE r.job.id = :jobId")
+    List<StagedRecord> findAllByJobId(@Param("jobId") UUID jobId);
+
+    /** Used by UniquenessChecker to detect duplicate hashes within a source. */
+    List<StagedRecord> findBySourceIdAndRecordHash(UUID sourceId, String recordHash);
 }
