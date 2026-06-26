@@ -57,6 +57,30 @@ Phase 5 implements a six-dimension data quality evaluation pipeline with statist
 
 ---
 
+## Phase 6 - Conflict Detection & Canonical Load
+Phase 6 resolves multi-source conflicts and loads quality-verified records into canonical entity tables with full data lineage.
+
+### Key Features
+1. **Canonical Load**: Quality-passing records are upserted into `canonical.*` tables using multi-pass ordering — entities with higher trust scores and completeness are loaded first, establishing a base that lower-pass records merge into.
+2. **Entity Resolution**: Matching combines `external_refs` JSONB exact-match lookups with business-key fallback strategies (email for contacts, SKU for products, composite keys for orders). Entities from different sources that resolve to the same identity are grouped for conflict analysis.
+3. **Conflict Detection**: Field-by-field comparisons across grouped entity versions. Each conflict records the field name, diverging values, source provenance, and a computed importance score. Batch resolution thresholds prevent premature propagation when unresolved conflict density exceeds the configured limit.
+4. **Resolution Strategies**: Three configurable strategies triggered automatically during resolution:
+   - `TRUST_HIERARCHY` — selects the value from the source with the highest trust score when the trust gap between sources is ≥0.3
+   - `LATEST_WINS` — picks the most recently ingested value for low-importance fields (formatting, descriptions)
+   - `FLAGGED_FOR_REVIEW` — escalates high-importance fields (pricing, quantities, customer identifiers) for manual intervention
+5. **REST API**: Query, inspect, resolve, and suppress conflicts.
+6. **Data Lineage**: Every canonical write traces back through the source record ID, ingestion batch, and source system, producing an auditable chain from raw input to master record.
+
+### REST API
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/v1/conflicts` | List all conflicts with pagination and filterable by source, entity type, severity, and status |
+| GET | `/api/v1/conflicts/{id}` | Retrieve a single conflict with full field-level detail and source provenance |
+| PUT | `/api/v1/conflicts/{id}/resolve` | Resolve conflict by providing the chosen canonical value |
+| PUT | `/api/v1/conflicts/{id}/suppress` | Suppress a conflict permanently without resolution |
+
+---
+
 ## Getting Started
 
 ### Prerequisites
