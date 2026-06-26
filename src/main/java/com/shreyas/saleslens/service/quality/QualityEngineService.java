@@ -27,6 +27,7 @@ public class QualityEngineService {
     private final QualityIssueRepository qualityIssueRepository;
     private final RejectedRecordRepository rejectedRecordRepository;
     private final QualityScoreService qualityScoreService;
+    private final ProfilingService profilingService;
 
     @Transactional
     public void runQualityEngine(UUID jobId) {
@@ -101,6 +102,17 @@ public class QualityEngineService {
 
             page++;
         } while (!records.isEmpty());
+
+        // Run statistical baseline drift detection (ProfilingService)
+        try {
+            List<QualityIssue> driftIssues = profilingService.detectDrift(run, job.getSource().getId());
+            if (driftIssues != null && !driftIssues.isEmpty()) {
+                allIssues.addAll(driftIssues);
+                log.info("ProfilingService: detected {} baseline drift issues", driftIssues.size());
+            }
+        } catch (Exception e) {
+            log.error("ProfilingService drift detection failed: {}", e.getMessage(), e);
+        }
 
         // Save issues
         qualityIssueRepository.saveAll(allIssues);

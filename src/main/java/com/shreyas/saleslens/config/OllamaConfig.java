@@ -25,6 +25,7 @@ public class OllamaConfig {
                 .baseUrl(baseUrl)
                 .modelName(modelName)
                 .timeout(Duration.ofSeconds(60))
+                .temperature(0.0)
                 .build();
     }
 

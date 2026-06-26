@@ -37,6 +37,7 @@ class QualityEngineServiceTest {
     private RejectedRecordRepository rejectedRecordRepository;
     private QualityScoreRepository qualityScoreRepository;
     private QualityScoreService qualityScoreService;
+    private ProfilingService profilingService;
     private QualityEngineService qualityEngineService;
 
     @BeforeEach
@@ -69,6 +70,7 @@ class QualityEngineServiceTest {
         qualityScoreRepository = mock(QualityScoreRepository.class);
 
         qualityScoreService = new QualityScoreService(qualityScoreRepository);
+        profilingService = mock(ProfilingService.class);
 
         qualityEngineService = new QualityEngineService(
                 checkers,
@@ -77,7 +79,8 @@ class QualityEngineServiceTest {
                 qualityRunRepository,
                 qualityIssueRepository,
                 rejectedRecordRepository,
-                qualityScoreService
+                qualityScoreService,
+                profilingService
         );
     }
 

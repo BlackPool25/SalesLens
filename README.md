@@ -30,13 +30,30 @@ The Phase 3 implementation introduces automated schema profiling and drift track
 Phase 4 introduces intelligent schema mapping that bridges dynamic ingested schemas with a canonical entity model, supporting automated mapping, manual overrides, and structural transformation.
 
 ### Key Features
-1. **Heuristic Similarity Matcher**:
+1. **Heuristic-First Similarity Matcher (PRIMARY)**:
    * **Exact Match (1.00)**: Matching column name or predefined synonyms directly.
    * **Levenshtein Distance (0.85)**: Typo tolerance (edit distance <= 2).
    * **Token Overlap (0.70)**: Partial match (Jaccard similarity >= 0.5) for word overlaps.
    * **Type Fallback (0.55)**: Match based on column data type.
-2. **Dynamic Payload Transformation**: Translates nested raw record maps into flattened, singularized canonical JSON maps (e.g. `{"order.total_amount": "123.45"}`) according to confirmed field mappings.
-3. **Safety & Hardening**: Ignores empty/blank headers automatically, stringifies numeric and boolean raw inputs, and handles malformed JSON inputs gracefully without failing ingestion jobs.
+2. **Optional LLM Advisory Mapping**: When Ollama is available, an LLM can provide mapping suggestions. The LLM result is used only if its confidence exceeds the heuristic confidence. Output is validated against the canonical registry before acceptance. Up to 2 retries on parse failure.
+3. **Dynamic Payload Transformation**: Translates nested raw record maps into flattened, singularized canonical JSON maps (e.g. `{"order.total_amount": "123.45"}`) according to confirmed field mappings.
+4. **Safety & Hardening**: Ignores empty/blank headers automatically, stringifies numeric and boolean raw inputs, and handles malformed JSON inputs gracefully without failing ingestion jobs.
+
+---
+
+## Phase 5 - Quality Engine
+Phase 5 implements a six-dimension data quality evaluation pipeline with statistical baseline drift detection and optional LLM-powered issue explanations.
+
+### Key Features
+1. **Six Quality Dimensions**: Completeness, Validity, Uniqueness, Consistency, Timeliness, Accuracy — each implemented as a separate `QualityChecker` component.
+2. **Weighted Scoring**: Per-dimension scores (0.0–1.0) combined with configurable weights to produce an overall score and letter grade (A–F).
+3. **Statistical Baseline Drift Detection**: The `ProfilingService` compares current batch statistics against historical profiles:
+   - **Null rate drift**: flags when null rates shift >20pp from baseline (COMPLETENESS issue)
+   - **Value distribution skew**: flags when >50% of top-10 values are new (VALIDITY issue)
+   - **Range expansion**: flags when numeric min/max exceed 3σ of historical mean (ACCURACY issue)
+   - Cold-start guard: requires ≥3 batches of profiling data before activating
+4. **Optional LLM Quality Explanations**: The `QualityExplanationService` (in `service/advisory/`) generates human-readable explanations with remediation suggestions. Async, best-effort, never blocks the pipeline.
+5. **REST API**: Query issues (filterable by source, dimension, severity), view score trends, acknowledge issues.
 
 ---
 

@@ -6,7 +6,14 @@ import com.shreyas.saleslens.model.enums.InferredType;
 import com.shreyas.saleslens.repository.DataSourceRepository;
 import com.shreyas.saleslens.repository.FieldMappingRepository;
 import com.shreyas.saleslens.repository.SourceSchemaFieldRepository;
+import dev.langchain4j.data.message.AiMessage;
+import dev.langchain4j.data.message.SystemMessage;
+import dev.langchain4j.data.message.UserMessage;
 import dev.langchain4j.model.chat.ChatLanguageModel;
+import dev.langchain4j.model.chat.request.ChatRequest;
+import dev.langchain4j.model.chat.request.ResponseFormat;
+import dev.langchain4j.model.chat.request.json.JsonObjectSchema;
+import dev.langchain4j.model.chat.request.json.JsonSchema;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -17,6 +24,8 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.*;
 import java.util.concurrent.CopyOnWriteArrayList;
+
+import static dev.langchain4j.model.chat.request.ResponseFormatType.JSON;
 
 @Service
 @Slf4j
@@ -77,153 +86,68 @@ public class SemanticMapperService {
 
         List<SourceSchemaField> fields = sourceSchemaFieldRepository.findBySchemaId(schema.getId());
 
-        // Load pre-existing mappings for this source so we don't re-run LLM on already-mapped fields
+        // Load pre-existing mappings for this source so we don't re-process already-mapped fields
         Map<String, FieldMapping> existingByFieldName = new HashMap<>();
         fieldMappingRepository.findBySourceId(sourceId)
                 .forEach(m -> existingByFieldName.put(m.getSourceFieldName(), m));
 
         List<FieldMapping> newMappings = new ArrayList<>();
+        boolean llmAvailable = chatLanguageModel != null && jdbcTemplate != null;
 
         for (SourceSchemaField field : fields) {
             String sourceFieldName = field.getFieldName();
             InferredType inferredType = field.getInferredType();
 
-            // Reuse existing mapping if already confirmed or pending — skip LLM entirely
+            // 1. Reuse existing mapping if already confirmed or pending
             FieldMapping existing = existingByFieldName.get(sourceFieldName);
             if (existing != null && !"IGNORED".equals(existing.getStatus())) {
-                log.info("[CACHED] Field '{}' => {}.{} (confidence={}, status={}) — skipping LLM",
+                log.info("[CACHED] Field '{}' => {}.{} (confidence={}, status={}) — skipping",
                         sourceFieldName, existing.getCanonicalEntity(), existing.getCanonicalField(),
                         existing.getConfidence(), existing.getStatus());
-                // Not added to newMappings — existing row stays untouched in DB
                 existingByFieldName.remove(sourceFieldName);
                 continue;
             }
 
+            // 2. Skip null/empty field names
             if (sourceFieldName == null || sourceFieldName.trim().isEmpty()) {
-                FieldMapping mapping = new FieldMapping();
-                mapping.setSource(source);
-                mapping.setSourceFieldName(sourceFieldName);
-                mapping.setCanonicalEntity("");
-                mapping.setCanonicalField("");
-                mapping.setConfidence(BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP));
-                mapping.setStatus("IGNORED");
+                FieldMapping mapping = createIgnoredMapping(source, sourceFieldName);
                 newMappings.add(mapping);
                 continue;
             }
 
-            MappingDecision decision = null;
+            // 3. Run heuristic chain FIRST (always — zero external deps, milliseconds)
+            HeuristicResult heuristic = runHeuristicChain(sourceFieldName, inferredType);
 
-            if (chatLanguageModel != null && jdbcTemplate != null) {
+            // 4. Optionally run LLM if available (advisory only)
+            double bestScore = heuristic.score;
+            String bestEntity = heuristic.entity;
+            String bestField = heuristic.field;
+
+            if (llmAvailable) {
                 try {
-                    List<String> sourceSamples = getSourceSamples(sourceId, sourceFieldName);
-
-                    // Build prompt context
-                    StringBuilder canonicalFieldsDesc = new StringBuilder();
-                    for (CanonicalFieldInfo target : REGISTRY) {
-                        List<String> canonicalSamples = getCanonicalSamples(target.entity, target.field);
-                        canonicalFieldsDesc.append(String.format(
-                            "- Entity: %s, Field: %s, Expected Type: %s, Synonyms: %s, Samples: %s\n",
-                            target.entity, target.field, target.expectedType, target.synonyms, canonicalSamples
-                        ));
+                    MappingDecision llmDecision = runLlmWithRetry(sourceFieldName, inferredType, sourceId);
+                    if (llmDecision != null && isValidMapping(llmDecision)) {
+                        double llmConf = llmDecision.getConfidence() != null
+                                ? llmDecision.getConfidence().doubleValue() : 0.0;
+                        if (llmConf > bestScore) {
+                            bestScore = llmConf;
+                            bestEntity = llmDecision.getCanonicalEntity().trim();
+                            bestField = llmDecision.getCanonicalField().trim();
+                            log.info("[LLM] Field '{}' => {}.{} (confidence={}) — overrides heuristic ({})",
+                                    sourceFieldName, bestEntity, bestField, llmConf, heuristic.score);
+                        }
                     }
-
-                    String systemPrompt = "You are an intelligent schema mapping assistant.\n" +
-                            "Your job is to map an incoming CSV source column to a target canonical database field.\n" +
-                            "Here are the target canonical fields:\n" +
-                            canonicalFieldsDesc.toString() + "\n" +
-                            "You must respond with a JSON object containing:\n" +
-                            "{\n" +
-                            "  \"canonicalEntity\": \"name of target entity (e.g. customers, products, orders)\",\n" +
-                            "  \"canonicalField\": \"name of target column\",\n" +
-                            "  \"confidence\": score between 0.00 and 1.00\n" +
-                            "}\n" +
-                            "If no match is found, set canonicalEntity and canonicalField to empty strings, and confidence to 0.00.\n" +
-                            "Response MUST be a single clean JSON block. Do not include markdown code block syntax (like ```json) or explanation.";
-
-                    String userPrompt = String.format(
-                            "Source Column Name: %s\n" +
-                            "Inferred Type: %s\n" +
-                            "Source Sample Values: %s\n" +
-                            "Provide the mapping JSON block.",
-                            sourceFieldName, inferredType != null ? inferredType.name() : "FREE_TEXT", sourceSamples
-                    );
-
-                    log.info("Sending prompt to Ollama for field: {}", sourceFieldName);
-                    String rawResponse = chatLanguageModel.generate(systemPrompt + "\n\n" + userPrompt);
-                    log.info("Ollama response for field {}: {}", sourceFieldName, rawResponse);
-
-                    String cleanedJson = cleanJsonResponse(rawResponse);
-                    decision = objectMapper.readValue(cleanedJson, MappingDecision.class);
                 } catch (Exception e) {
-                    log.error("Ollama mapping failed for field {}: {}. Falling back to heuristics.", sourceFieldName, e.getMessage(), e);
+                    log.warn("[LLM] Field '{}' advisory failed: {}. Using heuristic result.", sourceFieldName, e.getMessage());
                 }
             }
 
-            FieldMapping mapping = new FieldMapping();
-            mapping.setSource(source);
-            mapping.setSourceFieldName(sourceFieldName);
-
-            if (decision != null && decision.getCanonicalEntity() != null && !decision.getCanonicalEntity().trim().isEmpty() &&
-                decision.getCanonicalField() != null && !decision.getCanonicalField().trim().isEmpty()) {
-
-                mapping.setCanonicalEntity(decision.getCanonicalEntity().trim());
-                mapping.setCanonicalField(decision.getCanonicalField().trim());
-
-                BigDecimal conf = decision.getConfidence();
-                if (conf == null) conf = BigDecimal.ZERO;
-                mapping.setConfidence(conf.setScale(2, RoundingMode.HALF_UP));
-
-                double highestScore = conf.doubleValue();
-                if (highestScore >= 0.80) {
-                    mapping.setStatus("AUTO_CONFIRMED");
-                } else if (highestScore >= 0.55) {
-                    mapping.setStatus("PENDING");
-                } else {
-                    mapping.setStatus("IGNORED");
-                }
-                log.info("[LLM] Field '{}' => {}.{} (confidence={}, status={})",
-                        sourceFieldName, mapping.getCanonicalEntity(), mapping.getCanonicalField(),
-                        mapping.getConfidence(), mapping.getStatus());
-            } else {
-                // Heuristic Fallback
-                double highestScore = 0.0;
-                CanonicalFieldInfo bestMatch = null;
-
-                for (CanonicalFieldInfo target : REGISTRY) {
-                    double score = computeConfidence(sourceFieldName, inferredType, target);
-                    if (score > highestScore) {
-                        highestScore = score;
-                        bestMatch = target;
-                    }
-                }
-
-                if (highestScore >= 0.55 && bestMatch != null) {
-                    mapping.setCanonicalEntity(bestMatch.entity);
-                    mapping.setCanonicalField(bestMatch.field);
-                    mapping.setConfidence(BigDecimal.valueOf(highestScore).setScale(2, RoundingMode.HALF_UP));
-
-                    if (highestScore >= 0.80) {
-                        mapping.setStatus("AUTO_CONFIRMED");
-                    } else {
-                        mapping.setStatus("PENDING");
-                    }
-                    log.info("[HEURISTIC] Field '{}' => {}.{} (confidence={}, status={})",
-                            sourceFieldName, mapping.getCanonicalEntity(), mapping.getCanonicalField(),
-                            mapping.getConfidence(), mapping.getStatus());
-                } else {
-                    mapping.setCanonicalEntity("");
-                    mapping.setCanonicalField("");
-                    mapping.setConfidence(BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP));
-                    mapping.setStatus("IGNORED");
-                    log.info("[HEURISTIC] Field '{}' => NO MATCH (status=IGNORED)", sourceFieldName);
-                }
-            }
-
+            // 5. Apply threshold logic with best available result
+            FieldMapping mapping = buildMapping(source, sourceFieldName, bestEntity, bestField, bestScore);
             newMappings.add(mapping);
         }
 
-        // Delete only mappings for fields that were completely dropped from the new schema
-        // (i.e. they were in the old mapping table but aren't in the current schema field list)
+        // Delete stale mappings for dropped fields
         Set<String> currentFieldNames = fields.stream()
                 .map(SourceSchemaField::getFieldName)
                 .collect(java.util.stream.Collectors.toSet());
@@ -238,6 +162,188 @@ public class SemanticMapperService {
             fieldMappingRepository.saveAll(newMappings);
         }
         log.info("Saved {} new field mappings for sourceId: {} (skipped cached fields)", newMappings.size(), sourceId);
+    }
+
+    /**
+     * Runs the heuristic chain: exact → Levenshtein → token overlap → type fallback.
+     * Returns the best match with its confidence score.
+     */
+    private HeuristicResult runHeuristicChain(String sourceFieldName, InferredType inferredType) {
+        double highestScore = 0.0;
+        String bestEntity = "";
+        String bestField = "";
+
+        for (CanonicalFieldInfo target : REGISTRY) {
+            double score = computeConfidence(sourceFieldName, inferredType, target);
+            if (score > highestScore) {
+                highestScore = score;
+                bestEntity = target.entity;
+                bestField = target.field;
+            }
+        }
+
+        return new HeuristicResult(highestScore, bestEntity, bestField);
+    }
+
+    /**
+     * Attempts LLM mapping with up to 2 retries on parse failure.
+     * Returns null if LLM unavailable, all retries fail, or output is invalid.
+     */
+    private MappingDecision runLlmWithRetry(String sourceFieldName, InferredType inferredType, UUID sourceId) {
+        if (chatLanguageModel == null || jdbcTemplate == null) return null;
+
+        List<String> sourceSamples = getSourceSamples(sourceId, sourceFieldName);
+
+        // Build prompt context with canonical registry info
+        StringBuilder canonicalFieldsDesc = new StringBuilder();
+        for (CanonicalFieldInfo target : REGISTRY) {
+            List<String> canonicalSamples = getCanonicalSamples(target.entity, target.field);
+            canonicalFieldsDesc.append(String.format(
+                    "- Entity: %s, Field: %s, Expected Type: %s, Synonyms: %s, Samples: %s\n",
+                    target.entity, target.field, target.expectedType, target.synonyms, canonicalSamples
+            ));
+        }
+
+        String systemPrompt = "You are an intelligent schema mapping assistant.\n" +
+                "Your job is to map an incoming CSV source column to a target canonical database field.\n" +
+                "Here are the target canonical fields:\n" +
+                canonicalFieldsDesc + "\n" +
+                "You must respond with a JSON object containing:\n" +
+                "{\n" +
+                "  \"canonicalEntity\": \"name of target entity (e.g. customers, products, orders)\",\n" +
+                "  \"canonicalField\": \"name of target column\",\n" +
+                "  \"confidence\": score between 0.00 and 1.00\n" +
+                "}\n" +
+                "If no match is found, set canonicalEntity and canonicalField to empty strings, and confidence to 0.00.\n" +
+                "Response MUST be a single clean JSON block. Do not include markdown code block syntax (like ```json) or explanation.";
+
+        String userPrompt = String.format(
+                "Source Column Name: %s\n" +
+                "Inferred Type: %s\n" +
+                "Source Sample Values: %s\n" +
+                "Provide the mapping JSON block.",
+                sourceFieldName, inferredType != null ? inferredType.name() : "FREE_TEXT", sourceSamples
+        );
+
+        // Retry up to 3 attempts (initial + 2 retries)
+        int maxAttempts = 3;
+        for (int attempt = 1; attempt <= maxAttempts; attempt++) {
+            try {
+                ChatRequest request = ChatRequest.builder()
+                        .messages(SystemMessage.from(systemPrompt), UserMessage.from(userPrompt))
+                        .responseFormat(ResponseFormat.builder()
+                                .type(JSON)
+                                .jsonSchema(JsonSchema.builder()
+                                        .rootElement(JsonObjectSchema.builder()
+                                                .addStringProperty("canonicalEntity")
+                                                .addStringProperty("canonicalField")
+                                                .addNumberProperty("confidence")
+                                                .required("canonicalEntity", "canonicalField", "confidence")
+                                                .build())
+                                        .build())
+                                .build())
+                        .build();
+
+                log.info("[LLM] Attempt {}/{} for field: {}", attempt, maxAttempts, sourceFieldName);
+                AiMessage response = chatLanguageModel.chat(request).aiMessage();
+                String rawResponse = response.text();
+                log.debug("[LLM] Response for field {}: {}", sourceFieldName, rawResponse);
+
+                String cleanedJson = cleanJsonResponse(rawResponse);
+                MappingDecision decision = objectMapper.readValue(cleanedJson, MappingDecision.class);
+
+                if (decision.getCanonicalEntity() != null && !decision.getCanonicalEntity().trim().isEmpty()
+                        && decision.getCanonicalField() != null && !decision.getCanonicalField().trim().isEmpty()
+                        && decision.getConfidence() != null) {
+                    log.info("[LLM] Attempt {} succeeded for field '{}': {}.{} (confidence={})",
+                            attempt, sourceFieldName, decision.getCanonicalEntity(),
+                            decision.getCanonicalField(), decision.getConfidence());
+                    return decision;
+                }
+
+                log.warn("[LLM] Attempt {} returned empty mapping for field '{}', retrying...", attempt, sourceFieldName);
+            } catch (Exception e) {
+                log.warn("[LLM] Attempt {} failed for field '{}': {}. {}",
+                        attempt, sourceFieldName, e.getMessage(),
+                        attempt < maxAttempts ? "Retrying..." : "All attempts exhausted.");
+            }
+        }
+
+        log.warn("[LLM] All {} attempts failed for field '{}'. Falling back to heuristic.", maxAttempts, sourceFieldName);
+        return null;
+    }
+
+    /**
+     * Validates that an LLM MappingDecision references a real entity/field in the canonical registry.
+     */
+    private boolean isValidMapping(MappingDecision decision) {
+        if (decision == null) return false;
+        String entity = decision.getCanonicalEntity();
+        String field = decision.getCanonicalField();
+        if (entity == null || entity.trim().isEmpty()) return false;
+        if (field == null || field.trim().isEmpty()) return false;
+        return findInRegistry(entity.trim(), field.trim()) != null;
+    }
+
+    /**
+     * Looks up a CanonicalFieldInfo by entity and field name, case-insensitive.
+     * Returns null if not found.
+     */
+    private CanonicalFieldInfo findInRegistry(String entity, String field) {
+        for (CanonicalFieldInfo info : REGISTRY) {
+            if (info.entity.equalsIgnoreCase(entity) && info.field.equalsIgnoreCase(field)) {
+                return info;
+            }
+        }
+        return null;
+    }
+
+    private FieldMapping createIgnoredMapping(DataSource source, String sourceFieldName) {
+        FieldMapping mapping = new FieldMapping();
+        mapping.setSource(source);
+        mapping.setSourceFieldName(sourceFieldName);
+        mapping.setCanonicalEntity("");
+        mapping.setCanonicalField("");
+        mapping.setConfidence(BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP));
+        mapping.setStatus("IGNORED");
+        return mapping;
+    }
+
+    private FieldMapping buildMapping(DataSource source, String sourceFieldName,
+                                       String canonicalEntity, String canonicalField, double confidence) {
+        FieldMapping mapping = new FieldMapping();
+        mapping.setSource(source);
+        mapping.setSourceFieldName(sourceFieldName);
+
+        if (confidence >= 0.55 && !canonicalEntity.isEmpty() && !canonicalField.isEmpty()) {
+            mapping.setCanonicalEntity(canonicalEntity);
+            mapping.setCanonicalField(canonicalField);
+            mapping.setConfidence(BigDecimal.valueOf(confidence).setScale(2, RoundingMode.HALF_UP));
+            mapping.setStatus(confidence >= 0.80 ? "AUTO_CONFIRMED" : "PENDING");
+            log.info("[MAPPING] Field '{}' => {}.{} (confidence={}, status={})",
+                    sourceFieldName, canonicalEntity, canonicalField,
+                    mapping.getConfidence(), mapping.getStatus());
+        } else {
+            mapping.setCanonicalEntity("");
+            mapping.setCanonicalField("");
+            mapping.setConfidence(BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP));
+            mapping.setStatus("IGNORED");
+            log.info("[MAPPING] Field '{}' => NO MATCH (status=IGNORED)", sourceFieldName);
+        }
+
+        return mapping;
+    }
+
+    private static class HeuristicResult {
+        final double score;
+        final String entity;
+        final String field;
+
+        HeuristicResult(double score, String entity, String field) {
+            this.score = score;
+            this.entity = entity;
+            this.field = field;
+        }
     }
 
 
