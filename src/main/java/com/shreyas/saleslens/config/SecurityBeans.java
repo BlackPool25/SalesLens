@@ -1,6 +1,7 @@
 package com.shreyas.saleslens.config;
 
 import com.shreyas.saleslens.config.filters.JwtFilter;
+import com.shreyas.saleslens.config.filters.LoginRateLimiter;
 import com.shreyas.saleslens.security.CustomUserDetailsService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
@@ -26,6 +27,7 @@ public class SecurityBeans {
 
     private final CustomUserDetailsService customUserDetailsService;
     private final JwtFilter jwtFilter;
+    private final LoginRateLimiter loginRateLimiter;
     SecureRandom secureRandom = new SecureRandom();
 
     @Bean
@@ -38,7 +40,8 @@ public class SecurityBeans {
                 )
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authenticationProvider(authenticationProvider(customUserDetailsService, passwordEncoder()))
-                .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
+                .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterBefore(loginRateLimiter, JwtFilter.class);
 
         return http.build();
     }

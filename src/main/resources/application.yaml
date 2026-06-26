@@ -8,15 +8,15 @@ spring:
 
   datasource:
     url: ${DB_URL:jdbc:postgresql://postgres:5432/saleslens_db}
-    username: ${DB_USERNAME:postgresadmin}
-    password: ${DB_PASSWORD:adminpassword}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
     driver-class-name: org.postgresql.Driver
 
   data:
     redis:
       host: ${REDIS_HOST:redis}
       port: ${REDIS_PORT:6379}
-      password: ${REDIS_PASS:}
+      password: ${REDIS_PASS}
 
 
   jpa:
@@ -26,11 +26,6 @@ spring:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
-
-  security:
-    user:
-      name: shreyas
-      password: shreyas
 
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:kafka:29092}
@@ -46,13 +41,28 @@ spring:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.apache.kafka.common.serialization.StringSerializer
 
+  servlet:
+    multipart:
+      max-file-size: 50MB
+      max-request-size: 55MB
+
 jwt:
-  secret: 'qncthC+iC9L41fl3ZkBPqoJpUD4joC1R75sjeg0yWWc='
+  secret: ${JWT_SECRET}
   access-token-expiry: 900000
   refresh-token-expiry: 604800000
 
 server:
   port: 8080
+
+langchain4j:
+  ollama:
+    chat-model:
+      base-url: ${OLLAMA_BASE_URL:http://localhost:11434}
+      model-name: ${OLLAMA_MODEL_NAME:qwen3.5:9b}
+
+saleslens:
+  batch:
+    chunk-size: 50
 
 #logging:
 #  level:

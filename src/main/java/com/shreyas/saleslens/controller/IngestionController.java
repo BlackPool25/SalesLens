@@ -25,6 +25,19 @@ public class IngestionController {
             @RequestParam("file") MultipartFile file,
             @RequestParam("sourceId") UUID sourceId) {
 
+        String filename = file.getOriginalFilename();
+        String contentType = file.getContentType();
+
+        boolean validExtension = filename != null && filename.toLowerCase().endsWith(".csv");
+        boolean validContentType = contentType == null
+                || contentType.equals("text/csv")
+                || contentType.equals("application/vnd.ms-excel")
+                || contentType.equals("application/octet-stream");
+
+        if (!validExtension || !validContentType) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", "Only CSV files are accepted"));
+        }
+
         UUID jobId = ingestionOrchestrator.ingestCsv(file, sourceId);
         return ResponseEntity.status(HttpStatus.ACCEPTED).body(Map.of(
                 "jobId", jobId,
