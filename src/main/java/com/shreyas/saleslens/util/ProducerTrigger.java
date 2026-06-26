@@ -7,6 +7,10 @@ import org.springframework.stereotype.Component;
 
 import java.util.concurrent.ThreadLocalRandom;
 
+/**
+ * @deprecated Test-only utility. Phase 8 uses LiveSalesEventConsumer for stream ingestion.
+ */
+@Deprecated
 @Component
 @RequiredArgsConstructor
 public class ProducerTrigger {

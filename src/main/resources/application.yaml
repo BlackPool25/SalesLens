@@ -71,9 +71,16 @@ saleslens:
     chunk-size: 50
     jdbc:
       poll-interval-ms: 60000
+    streaming:
+      poll-interval-ms: 30000
+      window-seconds: 30
+      source-cache-ttl-ms: 300000
   encryption:
     key: ${ENCRYPTION_KEY:change-me-in-production}
     salt: ${ENCRYPTION_SALT:deadbeefdeadbeef}
+  kafka:
+    stream-topic: sales.live
+    stream-group-id: saleslens-live
 
 #logging:
 #  level:
