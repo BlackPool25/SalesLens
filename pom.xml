@@ -123,6 +123,12 @@
 			<artifactId>spring-boot-starter-data-redis</artifactId>
 		</dependency>
 
+		<!-- Actuator (Micrometer metrics) -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-actuator</artifactId>
+		</dependency>
+
 		<!-- OpenCSV -->
 		<dependency>
 			<groupId>com.opencsv</groupId>
