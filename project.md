@@ -59,8 +59,10 @@
 - Spring Batch for file and JDBC ingestion (built for exactly this)
 - Kafka for live stream ingestion only (not used as internal pipeline bus to keep complexity manageable while learning)
 - OpenCSV for CSV parsing, Apache POI for Excel
-- Apache Commons Text for fuzzy field name matching
+- Apache Commons Text for fuzzy field name matching (heuristic chain: exact → Levenshtein → token overlap → type fallback)
 - MapStruct for DTO/entity mapping
+- LangChain4j + Ollama for **optional** LLM advisory features (conflict suggestions, quality explanations, schema docs) — never on the critical path
+- Two deployment modes: **Light** (Postgres only, no GPU, no Kafka) and **Full** (adds Kafka, Redis, Ollama)
 
 ---
 
@@ -203,6 +205,7 @@ External Systems (Sources):
 - Schema drift detection between ingestions
 - Kafka live stream connector
 - React/Vue frontend (source mgmt, quality dashboard, conflict review)
+- **User-configurable canonical schema via YAML config** — allows the tool to work beyond the sales domain. Users define entity types and fields in a config file loaded at startup.
 
 ### Could Have (good to have, not core)
 - Accuracy dimension (reference value set matching)
@@ -210,14 +213,15 @@ External Systems (Sources):
 - Scheduled re-profiling
 - Canonical data query API with filters (beyond direct SQL access)
 - Export of canonical data as CSV
+- Statistical baseline drift detection in quality engine (null rate shifts, value distribution changes)
+- LLM advisory features (conflict suggestions, quality explanations, schema descriptions)
 
 ### Won't Have (explicitly out of scope)
-- ML-based anomaly detection
 - Predictive analytics on sales data
 - CRM integrations (Salesforce, HubSpot) via REST
 - Email/webhook alerting
 - Multi-tenant architecture
-- User-defined canonical schema (fixed to sales domain)
+- Runtime user-defined canonical schema (startup-time YAML config is acceptable; full runtime GUI schema design is out)
 
 ---
 
@@ -230,16 +234,21 @@ External Systems (Sources):
 | Kafka learning curve delays Phase 8 | High | Medium | Keep Kafka only for live streams, not internal pipeline bus. Do it last |
 | Schema inference produces wrong type for ambiguous fields | High | Medium | Flag inference confidence below 0.8, require user confirmation |
 | Spring Batch complexity for simple CSV reads | Medium | Medium | Use SimpleJob pattern first, not full Chunk-oriented processing |
-| Conflict detection creates too many false positives | Medium | High | Define precise conflict rules per entity type before coding |
+| Conflict detection creates too many false positives | Medium | High | Define precise conflict rules per entity type before coding; add auto-resolve thresholds to prevent overload |
 | Excel files with merged cells / complex formatting | High | Low | Scope: flat tabular Excel only, document limitation clearly |
 | JDBC connector requires network access to legacy DB | Medium | High | Use local Postgres as the JDBC target during development |
+| **LLM hallucination in field mapping causes silent wrong mappings** | **High** | **High** | **Mitigation: LLM is now optional and advisory. Heuristic chain (exact→Levenshtein→token→type) is primary. LLM output is validated against canonical registry before acceptance. Prompt-only JSON (no schema enforcement) banned — must use JSON Schema structured outputs.** |
+| **LLM GPU requirement creates adoption barrier** | **High** | **Medium** | **Mitigation: No core pipeline feature depends on LLM. Document "Light mode" (Postgres only, no GPU, no Kafka) and "Full mode". Heuristic chain completes in milliseconds with zero external deps.** |
+| **Fixed canonical schema limits market to sales domain** | **Medium** | **High** | **Mitigation: Add YAML-based user-configurable canonical schema at startup. Default is the built-in sales model, but users can define their own entity types.** |
+| Quality engine baseline drift detection creates noise | Medium | Medium | Require minimum 3 batches of profiling data before raising drift issues; use statistical significance thresholds |
 
 ### Assumptions
-- The canonical schema is fixed to the sales domain (Customer, Product, Salesperson, Region, Order, OrderLineItem). It does not need to be user-configurable.
+- The canonical schema defaults to the sales domain (Customer, Product, Salesperson, Region, Order, OrderLineItem) but is user-configurable via YAML config at startup.
 - Sources are trusted enough that their data is worth processing — no source-level rejection.
 - A single Spring Boot instance is sufficient (no horizontal scaling needed for prototype).
 - The canonical Postgres schema is directly accessible to external tools — no additional query layer needed.
 - User already has working JWT auth with ADMIN and ANALYST roles.
+- LLM (Ollama) is strictly optional — no core pipeline function depends on it. All critical features work with heuristics alone.
 
 ### Issues (known before starting)
 - Docker Compose not yet set up — must be resolved in Phase 1 before anything else.
@@ -287,9 +296,13 @@ External Systems (Sources):
 - FR-03.6: Schema and profile written to DB and surfaced via API
 
 ### FR-04: Semantic Field Mapping
-- FR-04.1: After schema inference, the system dynamically attempts to map source fields to canonical fields using a hybrid approach combining heuristic checks with a local LLM matching step.
-- FR-04.2: Mapping engine queries a local Ollama endpoint `http://localhost:11434` with model `qwen3.5:9b` (configurable). To provide proper data distribution context, the engine retrieves 10 randomized sample values from existing canonical tables, alongside 10 sample values from the newly ingested data source CSV, and instructs the LLM to yield a structured JSON mapping decision with high confidence.
-- FR-04.3: LLM mapping runs exactly once per data source schema creation or drift detection. Calculated field mappings are persisted in the `field_mappings` table and reused sequentially for subsequent batch uploads without recurring LLM costs.
+- FR-04.1: After schema inference, the system maps source fields to canonical fields using a **hybrid heuristic chain** as the primary strategy:
+  - **Exact match** (confidence 1.0): field name matches canonical field name or one of its synonyms
+  - **Levenshtein distance ≤ 2** (confidence 0.85): typo-tolerant matching
+  - **Token overlap** (confidence 0.70): Jaccard similarity ≥ 0.5 on word tokens
+  - **Same inferred type** (confidence 0.55): type-based fallback when name matching fails
+- FR-04.2: The heuristic chain runs in-memory with zero external dependencies — it completes in milliseconds per field and works entirely offline. No GPU, LLM, or network endpoint is required for field mapping.
+- FR-04.3: An **optional LLM mapping step** can be enabled when Ollama is available. It runs exactly once per data source schema creation or drift detection. When enabled, the engine retrieves 10 randomized sample values from both canonical tables and the source CSV, then prompts an Ollama-hosted model (configurable, default `qwen3.5:9b`) to return a JSON mapping decision. The LLM's output is validated against the canonical registry before acceptance, and the result is persisted in `field_mappings` for reuse on subsequent batches. If the LLM is unavailable or returns invalid output, the heuristic chain result is used instead.
 - FR-04.4: Mappings with confidence ≥ 0.80 set to AUTO_CONFIRMED and proceed without user action. Mappings with confidence < 0.80 set to PENDING — data from those fields does not flow to target attributes until user confirms or overrides.
 - FR-04.5: User can confirm, override, or ignore any mapping via API.
 - FR-04.6: Unmapped incoming source fields or fields that don't match any standard canonical attributes are NOT ignored or discarded. They are routed into a flexible `custom_fields` or `additional_attributes` JSONB column on the target canonical table (Option A).
@@ -311,6 +324,8 @@ External Systems (Sources):
 - FR-05.5: Records with CRITICAL issues are not loaded to canonical. Records with HIGH/MEDIUM/LOW issues are loaded but flagged.
 - FR-05.6: QualityRule is a first-class entity — user can add custom rules via API without redeployment
 - FR-05.7: Quality scores tracked over time per source for trend visibility
+- FR-05.8: Quality engine uses DataProfile/FieldProfile statistical baselines (null rate, value distribution, min/max) as reference points. When a new batch deviates significantly from the baseline (e.g., null rate jumps from 5% to 50%, value range shifts by >3σ), a quality issue is raised for the affected dimension. This catches structural data drift that hardcoded rules miss.
+- FR-05.9: Optional LLM-generated quality explanation. For each issue, the system can request a local LLM (if available) to produce a human-readable explanation with remediation suggestions (e.g., "Field 'email' value 'not-an-email' doesn't match expected email format. This may indicate a column misalignment in the source export."). This output is purely advisory and does not affect pipeline execution.
 
 ### FR-06: Conflict Detection & Resolution
 - FR-06.1: A conflict occurs when a canonical entity already exists (loaded from a different source) and the incoming record provides a different value for the same field
@@ -324,6 +339,11 @@ External Systems (Sources):
 - FR-06.5: Conflict does not block loading — canonical record is loaded with the winning value and the conflict is persisted alongside
 - FR-06.6: User can acknowledge, resolve, or suppress any conflict via API
 - FR-06.7: Canonical record carries has_conflicts: true flag when unresolved conflicts exist
+- FR-06.8: **LLM-assisted resolution suggestions** (optional, requires Ollama). For FLAGGED_FOR_REVIEW conflicts, the system can present both values and their source context to a local LLM to generate a resolution recommendation with reasoning (e.g., "Source A says segment=Consumer (trust 0.9), Source B says Corporate (trust 0.6). Recommend Consumer: higher trust source, and 80% of this customer's other records use Consumer."). This is purely advisory — the user or resolution strategy makes the final decision.
+- FR-06.9: **Batch resolution thresholds**. To prevent conflict overload, implement auto-resolve rules:
+  - If one source has trust_score ≥ 0.3 higher than the other, auto-resolve with TRUST_HIERARCHY (no human review needed)
+  - Conflicts on low-importance fields (e.g., ship_mode, sub_category) can be auto-resolved via LATEST_WINS if both sources have trust > 0.7
+  - Only conflicts on high-importance fields (segment, unit_price, total_amount) where trust scores are close (within 0.3) default to FLAGGED_FOR_REVIEW
 
 ### FR-07: Canonical Store
 - FR-07.1: Six canonical tables: customers, products, salespersons, regions, orders, order_line_items.
@@ -350,6 +370,20 @@ External Systems (Sources):
 - FR-10.1: Existing User + JWT + BCrypt reused
 - FR-10.2: ADMIN role: all operations
 - FR-10.3: ANALYST role: read-only on all endpoints + conflict acknowledgement
+
+### FR-11: Optional LLM Advisory Service
+- FR-11.1: The LLM is strictly **advisory** — no core pipeline function depends on it. If Ollama is unavailable or responds with invalid output, the pipeline continues with heuristic/rule-based behavior.
+- FR-11.2: LLM advisory capabilities (all optional, all async/non-blocking):
+  - **Conflict resolution suggestions** (see FR-06.8): For flagged conflicts, generate a recommended resolution with natural-language reasoning.
+  - **Quality issue explanations** (see FR-05.9): For each quality issue, generate a human-readable explanation of what went wrong and how to fix the source data.
+  - **Schema documentation**: Generate natural-language descriptions of a source schema based on field names, types, sample values, and mappings.
+- FR-11.3: LLM responses are **validated before use**. JSON output must conform to a defined JSON Schema. Responses that fail validation or reference non-existent entity/field names are discarded; the system falls back to the non-LLM behavior. The raw and cleaned responses are always logged for audit.
+- FR-11.4: LLM configuration:
+  - Temperature must be set to 0.0 for deterministic output on mapping/advisory tasks
+  - Response format must use structured output / JSON Schema enforcement (not prompt-only)
+  - Retry logic: up to 2 retries with error feedback on parse failure before falling back
+  - Health check: pre-flight ping before advisory calls to avoid long timeouts
+- FR-11.5: No GPU requirement. If no Ollama endpoint is available, all advisory features are disabled transparently. The system documents which features require an LLM and which work without it.
 
 ---
 
@@ -388,15 +422,17 @@ External Systems (Sources):
 - Auth: existing implementation must not be broken
 - Frontend: React or Vue (basic, functional — not a design showcase)
 - Kafka: Docker only, not managed cloud
+- **Deployment modes**: The system supports two modes:
+  - **Light mode**: Postgres only. CSV ingestion + schema inference + heuristic mapping + quality engine. No Kafka, no GPU, no Ollama, no Redis. All core features work.
+  - **Full mode**: Adds Kafka for live streams, Redis for caching, Ollama for optional LLM advisory features. No core pipeline function is gated behind Full mode dependencies.
 
 ## Explicitly Out of Scope
-- User-configurable canonical schema
 - CRM/ERP REST API connectors (Salesforce, SAP)
-- ML anomaly detection
 - Email/webhook alerting
 - Multi-tenancy
 - Horizontal scaling
 - Cloud deployment (unless added later)
+- Runtime GUI-based canonical schema designer (YAML config at startup is acceptable; full visual schema design is out)
 
 ---
 
@@ -464,16 +500,25 @@ External Systems (Sources):
     <version>1.6.3</version>
     <scope>provided</scope>
 </dependency>
+
+<!-- LangChain4j Ollama (OPTIONAL — only needed for LLM advisory features) -->
+<!--
+<dependency>
+    <groupId>dev.langchain4j</groupId>
+    <artifactId>langchain4j-ollama</artifactId>
+    <version>1.0.0</version>
+</dependency>
+-->
 ```
 
 **Note on MapStruct + Lombok:** Add both annotation processors to the maven-compiler-plugin in the correct order: mapstruct-processor AFTER lombok-processor. If you don't, generated code breaks at compile time.
 
 ---
 
-## Flyway Migration Order
+## Flyway Migration Order (Current)
 
 ```
-V1  — users (already exists, your current schema)
+V1  — users
 V2  — data_sources
 V3  — source_schemas, source_schema_fields
 V4  — ingestion_jobs, staged_records
@@ -486,9 +531,13 @@ V10 — CREATE SCHEMA canonical; canonical.customers, canonical.products,
        canonical.salespersons, canonical.regions, canonical.orders,
        canonical.order_line_items
 V11 — data_lineage
+V12 — add additional_attributes JSONB to all canonical tables (post-hoc, unblocks dynamic field mapping)
+V13 — quality engine reshape: run_timestamp on quality_runs, flat quality_scores (per-job),
+       add rejected_records table (addressing V8 design issues)
+V14 — fix letter_grade VARCHAR(1) type alignment
 ```
 
-Each migration is one file. Never edit a migration once applied.
+Each migration is one file. Never edit a migration once applied. V8→V13 shows iterative schema refinement in the quality engine — expect similar adjustments in other areas as implementation progresses.
 
 ---
 
@@ -517,7 +566,7 @@ com.saleslens.
 │   │   ├── SchemaInferenceService
 │   │   └── TypeDetectionService
 │   ├── mapping/
-│   │   ├── SemanticMapperService
+│   │   ├── SemanticMapperService       (heuristic chain primary, LLM optional)
 │   │   └── TransformationService
 │   ├── quality/
 │   │   ├── QualityEngineService
@@ -527,14 +576,20 @@ com.saleslens.
 │   │   ├── ConsistencyChecker
 │   │   ├── TimelinessChecker
 │   │   ├── AccuracyChecker
-│   │   ├── ProfilingService
+│   │   ├── ProfilingService            (statistical baseline for drift detection)
 │   │   └── QualityScoreService
 │   ├── conflict/
 │   │   ├── ConflictDetectionService
-│   │   └── ConflictResolutionService
+│   │   ├── ConflictResolutionService
+│   │   └── ConflictThresholds          (batch resolution rules)
 │   ├── canonical/
 │   │   ├── CanonicalLoadService
 │   │   └── LineageService
+│   ├── advisory/                       (NEW — optional LLM advisory features)
+│   │   ├── AdvisoryOrchestrator        (routes to appropriate advisory, handles fallback)
+│   │   ├── ConflictAdvisorService      (LLM resolution suggestions — FR-11.2)
+│   │   ├── QualityExplanationService   (LLM quality explanations — FR-11.2)
+│   │   └── SchemaDocumentationService  (LLM schema descriptions — FR-11.2)
 │   └── cache/
 │       └── QualityCacheService
 │
@@ -795,7 +850,7 @@ A conflict is a field-level disagreement between two sources on the same real-wo
 ---
 
 ### Phase 4 — Semantic Field Mapping
-**Goal:** Source fields auto-mapped to canonical fields. Low-confidence ones flagged for review.
+**Goal:** Source fields auto-mapped to canonical fields using heuristic matching. Low-confidence ones flagged for review. LLM advisory mapping as optional add-on.
 
 **Tasks:**
 1. Define canonical field registry — a static map of all canonical fields across all six entities, with their expected type and synonyms:
@@ -806,29 +861,37 @@ A conflict is a field-level disagreement between two sources on the same real-wo
    ...
    ```
 2. `SemanticMapperService.generateMappings(SourceSchema)`:
-  - For each source field:
-    a. Normalize name (lowercase, strip underscores/spaces)
-    b. Exact match against canonical field names and synonyms → confidence 1.0
-    c. Levenshtein distance ≤ 2 → confidence 0.85
-    d. Token overlap (split on underscore/space, intersect token sets) → confidence 0.70
-    e. Same inferred type + cardinality profile matches a canonical field → confidence 0.55
-    f. Below 0.55 → UNMAPPED, stored as IGNORED
-  - Write `FieldMapping` per source field with confidence + status (AUTO_CONFIRMED if ≥ 0.80, PENDING if < 0.80)
+   - **Primary: Heuristic chain** (zero external deps, completes in milliseconds):
+     a. Normalize name (lowercase, strip underscores/spaces)
+     b. Exact match against canonical field names and synonyms → confidence 1.0
+     c. Levenshtein distance ≤ 2 → confidence 0.85
+     d. Token overlap (split on underscore/space, intersect token sets) → confidence 0.70
+     e. Same inferred type + cardinality profile matches a canonical field → confidence 0.55
+     f. Below 0.55 → UNMAPPED, stored as IGNORED
+   - **Optional: LLM mapping** (only if Ollama is available and enabled):
+     - Runs exactly once per schema creation/drift event
+     - Sends field name, inferred type, and 10 randomized sample values from both source and canonical tables
+     - Uses **JSON Schema structured outputs** (not prompt-only) via LangChain4j `ResponseFormat`
+     - Temperature = 0.0 for deterministic output
+     - Retry: up to 2 attempts on parse failure
+     - Output validated against canonical registry before acceptance
+     - LLM result used only if confidence > heuristic confidence for that field
+   - Write `FieldMapping` per source field with confidence + status (AUTO_CONFIRMED if ≥ 0.80, PENDING if < 0.80)
 3. `MappingController`:
-  - `GET /api/v1/sources/{id}/mappings` — list all with confidence and status
-  - `PUT /api/v1/sources/{id}/mappings/{fieldId}/confirm` — confirm pending mapping
-  - `PUT /api/v1/sources/{id}/mappings/{fieldId}/override` — change target canonical field
-  - `PUT /api/v1/sources/{id}/mappings/{fieldId}/ignore` — mark as IGNORED
+   - `GET /api/v1/sources/{id}/mappings` — list all with confidence and status
+   - `PUT /api/v1/sources/{id}/mappings/{fieldId}/confirm` — confirm pending mapping
+   - `PUT /api/v1/sources/{id}/mappings/{fieldId}/override` — change target canonical field
+   - `PUT /api/v1/sources/{id}/mappings/{fieldId}/ignore` — mark as IGNORED
 4. `TransformationService`: given a `StagedRecord` + confirmed `FieldMappings`, apply transforms and return a normalized map ready for quality checks
 
-**Done when:** Register Kaggle Superstore as source. See all fields mapped. Verify "Customer Name" → customer.name (exact), "Postal Code" → PENDING (ambiguous). Confirm it. See status change.
+**Done when:** Register Kaggle Superstore as source without Ollama running. See all fields mapped via heuristics alone. Verify "Customer Name" → customer.name (exact), "Postal Code" → PENDING (ambiguous). Confirm it. See status change.
 
-**What you learn:** Fuzzy matching algorithms, confidence thresholds, how to model a mapping engine as data rather than code
+**What you learn:** Fuzzy matching algorithms, confidence thresholds, why heuristic mapping is sufficient for well-named columns, when to involve an LLM and when not to
 
 ---
 
 ### Phase 5 — Quality Engine
-**Goal:** Every staged record evaluated across quality dimensions. Issues persisted. Score computed.
+**Goal:** Every staged record evaluated across quality dimensions. Issues persisted. Score computed. Statistical baselines from profiling used for drift-aware checking.
 
 **Tasks:**
 1. `QualityEngineService.runQualityCheck(IngestionJob)`:
@@ -843,25 +906,33 @@ A conflict is a field-level disagreement between two sources on the same real-wo
   - `ConsistencyChecker`: line_total = quantity × unit_price (within $0.01). order total = sum of line item totals. order_date ≤ today.
   - `TimelinessChecker`: order_date not more than 730 days in the past (configurable). order_date not in future.
   - `AccuracyChecker`: currency code in ISO-4217 set. Country name/code in reference set.
-3. `QualityScoreService.compute(List<QualityIssue>, int totalRecords)`:
+3. **Statistical baseline integration** (leveraging profiling data from Phase 3):
+  - For each field, compare current batch statistics against `FieldProfile` baselines:
+    - **Null rate drift**: if null_rate shifts by >20 percentage points from baseline, raise COMPLETENESS issue
+    - **Value distribution skew**: if top-10 values change significantly (>50% new values not in baseline top-10), raise VALIDITY issue
+    - **Range expansion**: if numeric min/max expand beyond 3σ of baseline mean, raise ACCURACY issue
+  - This catches data quality degradation that hardcoded rules would miss (e.g., a column that was 95% populated suddenly becomes 50% null)
+  - Baseline drift requires minimum 3 batches of profiling data before activating (avoids cold-start noise)
+4. `QualityScoreService.compute(List<QualityIssue>, int totalRecords)`:
   - Score per dimension = 1.0 − (critical_issues × 1.0 + high × 0.5 + medium × 0.2 + low × 0.05) / totalRecords, clamped to [0, 1]
   - Overall = weighted average (completeness 20%, validity 25%, uniqueness 20%, consistency 20%, timeliness 10%, accuracy 5%)
   - Grade: A ≥ 0.95, B ≥ 0.85, C ≥ 0.70, D ≥ 0.55, F < 0.55
-4. `QualityController`:
+5. `QualityController`:
   - `GET /api/v1/quality/issues` (paginated, filterable)
   - `GET /api/v1/quality/scores` (per source, over time)
   - `GET /api/v1/quality/summary`
   - `PUT /api/v1/quality/issues/{id}/acknowledge`
-5. Records with CRITICAL issues written to a `rejected_records` table with reason. All others proceed.
+6. Records with CRITICAL issues written to a `rejected_records` table with reason. All others proceed.
+7. **Optional LLM quality explanations** (see FR-05.9): async/non-blocking call to Ollama generates human-readable descriptions for each issue with remediation suggestions. Results cached and surfaced via API but never block the pipeline.
 
-**Done when:** Run Superstore CSV through quality. See completeness score. Manually insert a row with negative amount — see ValidityChecker catch it as HIGH severity issue. See overall score as letter grade.
+**Done when:** Run Superstore CSV through quality. See completeness score. Manually insert a row with negative amount — see ValidityChecker catch it as HIGH severity issue. See overall score as letter grade. Upload a second batch with null rate spike — see baseline drift issue raised.
 
-**What you learn:** How to model quality as data, weighted scoring, why checkers should be separate components (different failure modes), reference data validation
+**What you learn:** How to model quality as data, weighted scoring, why checkers should be separate components (different failure modes), reference data validation, statistical profiling vs hardcoded rules
 
 ---
 
 ### Phase 6 — Conflict Detection + Canonical Load
-**Goal:** Records that pass quality are loaded to canonical tables. Cross-source conflicts detected and stored.
+**Goal:** Records that pass quality are loaded to canonical tables. Cross-source conflicts detected and stored. LLM advisory suggestions for conflict resolution.
 
 **Tasks:**
 1. `CanonicalLoadService.load(IngestionJob)`:
@@ -874,19 +945,24 @@ A conflict is a field-level disagreement between two sources on the same real-wo
 2. `ConflictDetectionService.detect(CanonicalEntity existing, TransformedRecord incoming)`:
   - Compare each conflicting field (defined in FR-06.2)
   - For each differing field: write `ConflictRecord`
-  - Apply configured resolution strategy
+  - Apply configured resolution strategy (see batch resolution thresholds below)
   - Update canonical record with resolved value
   - Set `has_conflicts = true`
-3. `LineageService.write(...)`: after each canonical write, persist lineage record
-4. `ConflictController`:
+3. **Batch resolution thresholds** to prevent conflict overload (FR-06.9):
+  - Trust gap ≥ 0.3: auto-resolve with TRUST_HIERARCHY, no review needed
+  - Low-importance fields (ship_mode, sub_category): auto-resolve LATEST_WINS if both trusts > 0.7
+  - High-importance fields (segment, unit_price, total_amount) with trust gap < 0.3: default to FLAGGED_FOR_REVIEW
+4. **Optional LLM resolution suggestions** (FR-06.8): for FLAGGED_FOR_REVIEW conflicts, async LLM call generates a recommendation with reasoning. Suggestion is advisory only — stored alongside the conflict record but never auto-applied.
+5. `LineageService.write(...)`: after each canonical write, persist lineage record
+6. `ConflictController`:
   - `GET /api/v1/conflicts` (filterable by entity type, field, status, source)
   - `GET /api/v1/conflicts/{id}`
   - `PUT /api/v1/conflicts/{id}/resolve` (body: chosen_value)
   - `PUT /api/v1/conflicts/{id}/suppress`
 
-**Done when:** Load Superstore CSV. Load a second CSV of the same customers with different segment values. See ConflictRecords in DB. See `has_conflicts = true` on those canonical customers. Resolve one conflict via API. See it update.
+**Done when:** Load Superstore CSV. Load a second CSV of the same customers with different segment values. See ConflictRecords in DB. See `has_conflicts = true` on those canonical customers. Resolve one conflict via API. See it update. Verify that low-trust-gap conflicts auto-resolve without human intervention.
 
-**What you learn:** Upsert semantics with conflict tracking, the difference between quality (record-level) and conflict (cross-source entity-level), lineage modeling
+**What you learn:** Upsert semantics with conflict tracking, the difference between quality (record-level) and conflict (cross-source entity-level), lineage modeling, threshold-based auto-resolution design
 
 ---
 
@@ -991,22 +1067,36 @@ A conflict is a field-level disagreement between two sources on the same real-wo
 ### Phase 11 — Docker Compose + README
 **Goal:** Someone can clone the repo and run the entire system in one command.
 
-**docker-compose.yml services:**
-- `db`: postgres:16
-- `redis`: redis:7-alpine
-- `kafka`: confluentinc/cp-kafka:7.6.0 (KRaft mode)
-- `kafka-ui`: provectuslabs/kafka-ui (for local debugging)
-- `app`: your Spring Boot app (build from Dockerfile)
-- `frontend`: your React app (nginx container serving built static files)
+**Deployment modes:**
+
+**docker-compose.light.yml** (Light mode — Postgres only, core features):
+```yaml
+services:
+  db: postgres:16
+  app: your Spring Boot app
+```
+
+**docker-compose.yml** (Full mode — adds Kafka, Redis, optional Ollama):
+```yaml
+services:
+  db: postgres:16
+  redis: redis:7-alpine
+  kafka: apache/kafka with KRaft
+  app: your Spring Boot app
+```
+
+The full `docker-compose.yml` also includes an `ollama` service (commented out by default) for users who want LLM advisory features. Core pipeline never requires it.
 
 **README must include:**
 - What this system does (2 paragraphs, clear)
 - Architecture diagram (ASCII is fine)
 - Prerequisites: Docker, Docker Compose
-- How to run: `docker-compose up --build`
+- Two deployment modes: Light (quick start, no GPU) and Full (Kafka, Redis, Ollama)
+- How to run: `docker compose -f docker-compose.light.yml up` for Light mode
 - How to connect external tools: Postgres connection string for canonical schema
 - Known scope boundaries (Excel: flat sheets only, Kafka: local only, etc.)
 - API docs link (Swagger)
+- Which features require Ollama (conflict suggestions, quality explanations) and which don't (everything else)
 
 ---
 
@@ -1016,7 +1106,7 @@ A conflict is a field-level disagreement between two sources on the same real-wo
 Sales data arrives from multiple systems — a CRM, a legacy ERP, point-of-sale streams, exported spreadsheets. Each uses different field names, formats, and conventions for the same real-world entities. Most companies have no unified view of their own sales data. This system ingests from all those sources, infers their schemas, maps fields to a canonical sales model, evaluates every record across six quality dimensions, detects cross-source conflicts, and produces a single clean database that analysis tools can trust.
 
 **"What's genuinely hard in this system?"**
-Three things: the semantic mapper, which infers field equivalence statistically rather than requiring manual configuration; the conflict model, which persists cross-source disagreements as first-class queryable entities rather than silently overwriting; and the quality engine, which evaluates data against a statistical baseline so it catches drift that hardcoded rules miss.
+Three things: the semantic mapper, which uses a multi-tier heuristic chain (exact → Levenshtein → token overlap → type fallback) to infer field equivalence without manual configuration; the conflict model, which persists cross-source disagreements as first-class queryable entities rather than silently overwriting; and the quality engine, which evaluates data across six dimensions with weighted scoring, letter grades, and statistical baseline drift detection that catches degradation hardcoded rules miss. The optional LLM advisory layer adds conflict resolution recommendations and quality explanations — but it's never on the critical path, so the pipeline runs without a GPU.
 
 **"How does a customer actually use this without migrating their data?"**
 They don't migrate anything. They register their existing Postgres or MySQL database as a JDBC source. The system pulls from it on a schedule. Their data stays where it is. The canonical store is additive — a clean unified copy, not a replacement.
