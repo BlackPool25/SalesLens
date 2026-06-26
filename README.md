@@ -352,3 +352,65 @@ python3 verify_e2e.py
 ### 10. Ignore Mapping
 * **Endpoint**: `PUT /api/v1/sources/{sourceId}/mappings/{mappingId}/ignore`
 * **Request Headers**: `Authorization: Bearer <accessToken>`
+
+---
+
+## Phase 9 — API Polish: Swagger, Pagination, Role-Based Access, Canonical Query
+
+### Swagger UI
+* **Endpoint**: `/swagger-ui.html` (browser), `/api-docs` (JSON spec)
+* All endpoints require JWT — use the "Authorize" button in Swagger UI with your Bearer token.
+
+### Pagination
+All list endpoints support pagination via query parameters:
+- `page` (int, default 0) — zero-indexed page number
+- `size` (int, default 20) — page size
+- `sort` (string, default `createdAt` for most) — sort property, e.g. `createdAt,desc`
+
+Paginated responses follow Spring Data's `Page` JSON shape:
+```json
+{
+  "content": [...],
+  "totalElements": 42,
+  "totalPages": 3,
+  "size": 20,
+  "number": 0,
+  "sort": { "sorted": true, "unsorted": false, "empty": false },
+  "first": true,
+  "last": false,
+  "empty": false
+}
+```
+
+### Role-Based Access Control
+| Role | Read Endpoints | Mutate Endpoints | Ingestion / Schema Mutations |
+|------|---------------|------------------|-----------------------------|
+| `ADMIN` | ✅ | ✅ | ✅ |
+| `ANALYST` | ✅ | ✅ | ❌ |
+
+### New Endpoints
+
+#### Canonical Entities (Read-Only)
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/v1/canonical/customers` | Paginated canonical customers |
+| `GET` | `/api/v1/canonical/products` | Paginated canonical products |
+| `GET` | `/api/v1/canonical/orders` | Paginated canonical orders |
+| `GET` | `/api/v1/canonical/order-line-items` | Paginated canonical order line items |
+| `GET` | `/api/v1/canonical/salespersons` | Paginated canonical salespersons |
+| `GET` | `/api/v1/canonical/regions` | Paginated canonical regions |
+
+#### Conflicts (DB-Level Filtering)
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/v1/conflicts` | List conflicts with pagination and filtering by `entityType`, `fieldName`, `status`, `sourceId` (now filtered at DB level) |
+| `GET` | `/api/v1/conflicts/{id}` | Single conflict detail |
+| `PUT` | `/api/v1/conflicts/{id}/resolve` | Resolve with chosen value |
+| `PUT` | `/api/v1/conflicts/{id}/suppress` | Suppress conflict |
+
+#### Quality
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/v1/quality/issues` | Quality issues with pagination and filtering |
+| `GET` | `/api/v1/quality/scores` | Quality scores with pagination (was list) |
+| `PUT` | `/api/v1/quality/issues/{issueId}/acknowledge` | Acknowledge an issue |

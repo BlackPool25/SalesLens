@@ -51,19 +51,46 @@
 - Graceful fallback: returns null if LLM unavailable or fails
 
 ## Phase 6 — Conflict Detection + Canonical Load
-**Status: NOT STARTED**
+**Status: COMPLETED**
 
-### Tasks remaining:
-1. CanonicalLoadService — upsert records to canonical tables
-2. ConflictDetectionService — field-level cross-source conflict detection
-3. Batch resolution thresholds — trust gap, importance-based auto-resolve
-4. LineageService — record-level lineage tracking
-5. ConflictController — GET/PUT endpoints
-6. Canonical entities (Customer, Product, Order, etc.)
+### Completed:
+1. Canonical entities (Customer, Product, Order, OrderLineItem, Salesperson, Region) — 6 tables via Flyway
+2. ConflictDetectionService — field-level cross-source conflict detection with trust-gap/latest-wins/flagged-for-review strategies
+3. CanonicalLoadService — multi-pass upsert ordered by trust score + completeness
+4. LineageService — record-level lineage tracking via `CanonicalLineage` entity
+5. ConflictController — GET (list + by-id), PUT (resolve + suppress) endpoints
+6. CanonicalController — 6 paginated read-only endpoints for all canonical entities
 
-## Phase 7+ — Future Phases
-- Phase 7: Excel + JDBC connectors
-- Phase 8: Kafka live stream connector
-- Phase 9: Redis caching + API polish
+## Phase 7 — Excel + JDBC Connectors
+**Status: COMPLETED**
+- Excel (`.xlsx`) ingestion via Spring Batch + Apache POI
+- JDBC (Postgres/MySQL) ingestion with encrypted config, cron scheduling, background poller
+- REST endpoints: `/api/v1/ingest/excel`, `/api/v1/ingest/jdbc/{sourceId}`
+
+## Phase 8 — Kafka Live Stream Connector
+**Status: COMPLETED**
+- `sales.live` topic consumer with per-message commits and DLT error handling
+- Source system cache with 5-minute TTL
+- SHA-256 dedup constraint on staged records
+- Window-based batch processor (30s default) with `StreamPipelineScheduler`
+- `/scripts/kafka_test_producer.py` for load testing
+
+## Phase 9 — Redis Caching + API Polish
+**Status: IN PROGRESS**
+
+### Completed:
+1. **Springdoc/Swagger**: OpenAPI 3.0 docs at `/swagger-ui.html`, `/api-docs` (springdoc-openapi 3.0.3)
+2. **Redis caching**: `@EnableCaching`, `CacheConfig` with 15/30-min TTL regions, `QualityCacheService` for quality/conflict caching
+3. **`@PreAuthorize` on all controllers**: Role-based access (ADMIN/ANALYST for read, ADMIN for ingestion/schema mutations)
+4. **Pagination on all list endpoints**: `@PageableDefault` with 20-item pages, sorted by `createdAt`
+5. **DB-level conflict filtering**: Replaced in-memory stream filter with `ConflictRecordRepository.findFiltered()` JPQL query
+6. **CanonicalController**: 6 paginated read-only endpoints (`/api/v1/canonical/customers`, `/products`, `/orders`, `/order-line-items`, `/salespersons`, `/regions`)
+
+### Remaining:
+- Test infrastructure fix: CacheManager bean for `@WebMvcTest` slices
+- QualityCacheService unit tests
+- Full scenario QA
+
+## Phase 10+ — Future Phases
 - Phase 10: React frontend
-- Phase 11: Docker Compose + README
+- Phase 11: Docker Compose + README polish
