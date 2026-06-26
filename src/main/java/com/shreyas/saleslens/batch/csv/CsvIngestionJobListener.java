@@ -3,6 +3,7 @@ package com.shreyas.saleslens.batch.csv;
 import com.shreyas.saleslens.model.enums.JobStatus;
 import com.shreyas.saleslens.repository.IngestionJobRepository;
 import com.shreyas.saleslens.service.inference.SchemaInferenceService;
+import com.shreyas.saleslens.service.canonical.CanonicalLoadService;
 import com.shreyas.saleslens.service.quality.QualityEngineService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -24,6 +25,7 @@ public class CsvIngestionJobListener implements JobExecutionListener {
 
     private final IngestionJobRepository ingestionJobRepository;
     private final SchemaInferenceService schemaInferenceService;
+    private final CanonicalLoadService canonicalLoadService;
     private final QualityEngineService qualityEngineService;
 
     @Override
@@ -86,6 +88,12 @@ public class CsvIngestionJobListener implements JobExecutionListener {
                     qualityEngineService.runQualityEngine(ingestionJobId);
                 } catch (Exception e) {
                     log.error("Quality Engine failed for job {}: {}", ingestionJobId, e.getMessage(), e);
+                }
+
+                try {
+                    canonicalLoadService.loadCanonical(ingestionJobId);
+                } catch (Exception e) {
+                    log.error("Canonical load failed for job {}: {}", ingestionJobId, e.getMessage(), e);
                 }
             }
 
