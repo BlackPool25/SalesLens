@@ -53,8 +53,6 @@ public class IngestionOrchestrator {
         } catch (Exception e) {
             markFailed(job, e.getMessage());
             throw new RuntimeException("Failed to launch ingestion job", e);
-        } finally {
-            cleanup(tempFile);
         }
     }
 

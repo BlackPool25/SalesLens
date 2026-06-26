@@ -20,4 +20,9 @@ public interface FieldMappingRepository extends JpaRepository<FieldMapping, UUID
     @Transactional
     @Query("delete from FieldMapping f where f.source.id = :sourceId")
     void deleteBySourceId(@Param("sourceId") UUID sourceId);
+
+    @Modifying
+    @Transactional
+    @Query("delete from FieldMapping f where f.source.id = :sourceId and f.sourceFieldName = :fieldName")
+    void deleteBySourceIdAndSourceFieldName(@Param("sourceId") UUID sourceId, @Param("fieldName") String fieldName);
 }
