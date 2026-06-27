@@ -88,6 +88,15 @@
 7. **Test infrastructure**: `TestCacheConfig` provides `ConcurrentMapCacheManager` for `@WebMvcTest` slices
 8. **QualityCacheServiceTest**: 12 Mockito unit tests covering caching behavior, edge cases, eviction
 
-## Phase 10+ — Future Phases
-- Phase 10: React frontend
-- Phase 11: Docker Compose + README polish
+## Phase 10 - React Frontend (COMPLETED)
+
+- [x] React SPA at `src/frontend/` with 5 pages: Login, Sources, Ingestion, Quality Dashboard, Conflicts
+- [x] JWT auth with Access token in React context (memory), Refresh token in httpOnly cookie
+- [x] Axios interceptor for silent token refresh
+- [x] Full design system: Slate+Indigo palette, Inter font, surface color shift depth
+- [x] Quality Score Ring component (SVG circular progress with letter grade)
+- [x] Recharts bar/line charts for quality scores
+- [x] Card-based conflict comparison display with resolve/suppress
+- [x] nginx Docker container for production serving
+- [x] Docker Compose integration with frontend service
+- [x] Playwright E2E tests for all pages
