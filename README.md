@@ -414,3 +414,96 @@ Paginated responses follow Spring Data's `Page` JSON shape:
 | `GET` | `/api/v1/quality/issues` | Quality issues with pagination and filtering |
 | `GET` | `/api/v1/quality/scores` | Quality scores with pagination (was list) |
 | `PUT` | `/api/v1/quality/issues/{issueId}/acknowledge` | Acknowledge an issue |
+
+---
+
+## System Architecture
+
+The following C4 container diagram shows the client browser accessing the system via Nginx, which serves the frontend SPA and routes API requests to the Spring Boot backend:
+
+```text
++-----------------------------------------------------------------------------+
+|                            SalesLens System                                 |
+|                                                                             |
+|   Client Browser                                                            |
+|         |                                                                   |
+|         | (HTTP, port 3000)                                                 |
+|         v                                                                   |
+|   +--------------+                                                          |
+|   |    Nginx     |                                                          |
+|   |  Container   | (Serves React SPA: Vite 6, React 19, TS 5, Tailwind v4)  |
+|   +------+-------+                                                          |
+|          |                                                                  |
+|          | (Proxies /api/ and /auth/ to port 8080)                          |
+|          v                                                                  |
+|   +----------------------------------------------------------------------+  |
+|   |                    Spring Boot 4 Application (Port 8080)             |  |
+|   |                                                                      |  |
+|   |   +--------------------+          +------------------------------+   |  |
+|   |   |  REST Controllers  |          |    Spring Batch Pipeline     |   |  |
+|   |   |  (Auth, Ingest...) |          |       (CSV/Excel/JDBC)       |   |  |
+|   |   +--------------------+          +------------------------------+   |  |
+|   |   +--------------------+          +------------------------------+   |  |
+|   |   | Pipeline Services  |          |   Kafka Consumer Service     |   |  |
+|   |   | (Quality, Schema)  |          |        (Live Streams)        |   |  |
+|   |   +--------------------+          +------------------------------+   |  |
+|   +------+----------+--------------------------+----------+--------------+  |
+|          |          |                          |          |                 |
+|          v          v                          v          v                 |
+|   +-------------++-------------+        +-------------++-------------+      |
+|   |  Staging    ||  Canonical  |        |    Redis    ||    Kafka    |      |
+|   |  Schema in  ||  Schema in  |        |  (Caching)  || (Ingestion) |      |
+|   |  Postgres   ||  Postgres   |        +-------------++-------------+      |
+|   +-------------++-------------+                                            |
++-----------------------------------------------------------------------------+
+```
+
+---
+
+## Phase 10 - React Frontend
+
+The Phase 10 React Frontend provides a responsive Single Page Application (SPA) designed to interface with the core SalesLens API.
+
+### Technical Stack
+* **Bundler and Dev Server**: Vite 6
+* **Component Library**: React 19
+* **Language**: TypeScript 5
+* **Data Fetching and Caching**: TanStack Query 5 (React Query)
+* **Visualization Charts**: Recharts 2
+* **Styling framework**: Tailwind CSS v4 (using Slate and Indigo palette, Inter font, and dynamic depth via shadow elevations)
+* **API Client**: Axios
+* **Routing**: React Router v7
+* **Form Validation**: React Hook Form + Zod
+* **Unit Testing**: Vitest
+* **End to End Testing**: Playwright
+
+### Directory Structure
+The frontend codebase is organized under `src/frontend/` as follows:
+* `src/frontend/src/pages/`: Contains page level components (Login, Sources, Ingestion, Quality Dashboard, Conflicts, Not Found).
+* `src/frontend/src/components/`: Reusable interface widgets (ConflictCard, ConfirmDialog, JobStatusBadge, JobStatusPoller, QualityScoreRing).
+* `src/frontend/src/hooks/`: React Query queries and mutations wrapper hooks (useQuality, useJobs, useIngestion, useSources).
+* `src/frontend/src/lib/`: Core modules (auth-context for authentication state, api-client for Axios setup and interceptors, cn for Tailwind utility).
+* `src/frontend/src/types/`: TypeScript interfaces and models.
+* `src/frontend/Dockerfile` and `nginx.conf`: Configuration files for containerized production builds.
+
+### Development and Production Commands
+Run the following scripts from the `src/frontend/` folder:
+* **Start local development server**: `npm run dev`
+* **Build production package**: `npm run build`
+* **Run unit tests**: `npm run test`
+* **Run E2E tests**: `npm run test:e2e`
+* **Lint files**: `npm run lint`
+* **Format source code**: `npm run format`
+
+### Authentication Flow
+* **JWT Handling**: Access tokens are kept solely in memory within the React Auth Context. Refresh tokens are stored in secure httpOnly cookies.
+* **Axios Interceptor**: Outgoing API requests automatically attach the Authorization Bearer header. If a request returns a 401 Unauthorized status, the response interceptor queues all pending calls and triggers a silent token refresh endpoint `/auth/refresh`. Upon success, the queued requests are retried. If the refresh fails, the interceptor clears the context and logs the user out.
+
+### Design System and Component Highlights
+* **Visual Palette**: Slate gray neutral tones combined with vibrant Indigo accents, utilizing Inter font. Responsive sizing and subtle depth shadows ensure a clear visual hierarchy.
+* **Quality Score Ring**: An SVG component that renders a circular progress meter along with the overall batch quality letter grade (A through F).
+* **Recharts Dashboard**: Line charts and bar graphs show quality history and metric breakdowns.
+
+### Production Serving
+* **Containerization**: A multi-stage Docker build builds the React code using Node 22 Alpine and then transfers the build output to an Nginx Alpine container.
+* **Nginx Routing**: Configured to support fallback routing to index.html for the React SPA. It also acts as a reverse proxy, mapping `/api/` and `/auth/` paths to the backend service.
