@@ -1,5 +1,6 @@
 package com.shreyas.saleslens.controller;
 import com.shreyas.saleslens.config.TestCacheConfig;
+import com.shreyas.saleslens.config.TestSecurityConfig;
 import org.springframework.context.annotation.Import;
 import com.shreyas.saleslens.config.filters.JwtFilter;
 import com.shreyas.saleslens.model.DataSource;
@@ -35,7 +36,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(JobController.class)
-@Import(TestCacheConfig.class)
+@Import({TestCacheConfig.class, TestSecurityConfig.class})
 class JobControllerTest {
 
     @Autowired

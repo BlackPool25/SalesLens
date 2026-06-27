@@ -6,6 +6,7 @@ import com.shreyas.saleslens.model.enums.IssueStatus;
 import com.shreyas.saleslens.model.enums.QualityDimension;
 import com.shreyas.saleslens.model.enums.QualitySeverity;
 import com.shreyas.saleslens.repository.*;
+import com.shreyas.saleslens.service.cache.QualityCacheService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -38,6 +39,7 @@ class QualityEngineServiceTest {
     private QualityScoreRepository qualityScoreRepository;
     private QualityScoreService qualityScoreService;
     private ProfilingService profilingService;
+    private QualityCacheService qualityCacheService;
     private QualityEngineService qualityEngineService;
 
     @BeforeEach
@@ -71,6 +73,7 @@ class QualityEngineServiceTest {
 
         qualityScoreService = new QualityScoreService(qualityScoreRepository);
         profilingService = mock(ProfilingService.class);
+        qualityCacheService = mock(QualityCacheService.class);
 
         qualityEngineService = new QualityEngineService(
                 checkers,
@@ -80,7 +83,8 @@ class QualityEngineServiceTest {
                 qualityIssueRepository,
                 rejectedRecordRepository,
                 qualityScoreService,
-                profilingService
+                profilingService,
+                qualityCacheService
         );
     }
 

@@ -1,5 +1,6 @@
 package com.shreyas.saleslens.controller;
 import com.shreyas.saleslens.config.TestCacheConfig;
+import com.shreyas.saleslens.config.TestSecurityConfig;
 import org.springframework.context.annotation.Import;
 import com.shreyas.saleslens.config.filters.JwtFilter;
 import com.shreyas.saleslens.model.DataSource;
@@ -36,7 +37,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 @WebMvcTest(MappingController.class)
-@Import(TestCacheConfig.class)
+@Import({TestCacheConfig.class, TestSecurityConfig.class})
 class MappingControllerTest {
 
     @Autowired

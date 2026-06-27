@@ -1,5 +1,6 @@
 package com.shreyas.saleslens.controller;
 import com.shreyas.saleslens.config.TestCacheConfig;
+import com.shreyas.saleslens.config.TestSecurityConfig;
 import org.springframework.context.annotation.Import;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.shreyas.saleslens.config.filters.JwtFilter;
@@ -27,7 +28,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(SchemaManagementController.class)
-@Import(TestCacheConfig.class)
+@Import({TestCacheConfig.class, TestSecurityConfig.class})
 class SchemaManagementControllerTest {
 
     @Autowired
@@ -106,6 +107,7 @@ class SchemaManagementControllerTest {
     }
 
     @Test
+    @WithMockUser
     void testPromoteAttribute_withoutAdminRole_returns403() throws Exception {
         SchemaPromoteRequest request = new SchemaPromoteRequest();
         request.setEntityName("orders");

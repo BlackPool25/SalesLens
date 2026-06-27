@@ -1,10 +1,13 @@
 package com.shreyas.saleslens.controller;
 import com.shreyas.saleslens.config.TestCacheConfig;
+import com.shreyas.saleslens.config.TestSecurityConfig;
 import org.springframework.context.annotation.Import;
 import com.shreyas.saleslens.config.filters.JwtFilter;
 import com.shreyas.saleslens.dto.CreateSourceRequest;
 import com.shreyas.saleslens.dto.DataSourceResponse;
+import com.shreyas.saleslens.model.Users;
 import com.shreyas.saleslens.security.CustomUserDetailsService;
+import com.shreyas.saleslens.security.UserPrincipal;
 import com.shreyas.saleslens.service.DataSourceService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -14,7 +17,10 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.MediaType;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -37,9 +43,10 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
 
 @WebMvcTest(DataSourceController.class)
-@Import(TestCacheConfig.class)
+@Import({TestCacheConfig.class, TestSecurityConfig.class})
 class DataSourceControllerTest {
 
     @Autowired
@@ -95,8 +102,18 @@ class DataSourceControllerTest {
     }
 
     @Test
-    @WithMockUser(roles = "ADMIN")
     void createSource_returnsString() throws Exception {
+        Users adminUser = new Users();
+        adminUser.setId(1L);
+        adminUser.setUsername("admin");
+        adminUser.setPassword("password");
+        adminUser.setRole("ADMIN");
+        UserPrincipal adminPrincipal = new UserPrincipal(adminUser);
+        UsernamePasswordAuthenticationToken auth =
+                UsernamePasswordAuthenticationToken.authenticated(
+                        adminPrincipal, adminPrincipal.getPassword(),
+                        List.of(new SimpleGrantedAuthority("ROLE_ADMIN")));
+
         when(dataSourceService.createSource(any(CreateSourceRequest.class), eq(1L)))
                 .thenReturn("Test Source saved successfully");
 
@@ -109,12 +126,18 @@ class DataSourceControllerTest {
                 }
                 """;
 
-        mockMvc.perform(post("/datasources/create-source")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(json)
-                        .with(csrf()))
-                .andExpect(status().isOk())
-                .andExpect(content().string("Test Source saved successfully"));
+        SecurityContextHolder.getContext().setAuthentication(auth);
+        try {
+            mockMvc.perform(post("/datasources/create-source")
+                            .with(csrf())
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(json))
+                    .andDo(print())
+                    .andExpect(status().isOk())
+                    .andExpect(content().string("Test Source saved successfully"));
+        } finally {
+            SecurityContextHolder.clearContext();
+        }
     }
 
     @Test
