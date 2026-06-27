@@ -1,5 +1,6 @@
 package com.shreyas.saleslens.controller;
-
+import com.shreyas.saleslens.config.TestCacheConfig;
+import org.springframework.context.annotation.Import;
 import com.shreyas.saleslens.config.filters.JwtFilter;
 import com.shreyas.saleslens.model.DataSource;
 import com.shreyas.saleslens.model.FieldMapping;
@@ -35,6 +36,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 @WebMvcTest(MappingController.class)
+@Import(TestCacheConfig.class)
 class MappingControllerTest {
 
     @Autowired
@@ -77,7 +79,7 @@ class MappingControllerTest {
         m.setStatus("AUTO_CONFIRMED");
 
         Page<FieldMapping> page = new PageImpl<>(List.of(m));
-        when(fieldMappingRepository.findBySourceId(sourceId, any(Pageable.class))).thenReturn(page);
+        when(fieldMappingRepository.findBySourceId(eq(sourceId), any(Pageable.class))).thenReturn(page);
 
         mockMvc.perform(get("/api/v1/sources/{sourceId}/mappings", sourceId)
                         .param("page", "0")
