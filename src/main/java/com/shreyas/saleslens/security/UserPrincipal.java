@@ -13,12 +13,14 @@ import java.util.List;
 public class UserPrincipal implements UserDetails {
     private final Long id;
     private final String username;
+    private final String email;
     private final String password;
     private final Collection<? extends GrantedAuthority> authorities;
 
     public UserPrincipal(Users user) {
         this.id = user.getId();
         this.username = user.getUsername();
+        this.email = user.getEmail();
         this.password = user.getPassword();
         this.authorities = List.of(new SimpleGrantedAuthority("ROLE_" + user.getRole()));
     }
