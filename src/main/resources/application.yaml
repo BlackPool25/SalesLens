@@ -52,6 +52,7 @@ spring:
       pool:
         size: 4
 
+# Default admin credentials (seeded by V18): admin / Admin123!
 jwt:
   secret: ${JWT_SECRET}
   access-token-expiry: 900000
