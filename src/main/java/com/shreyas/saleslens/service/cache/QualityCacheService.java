@@ -4,9 +4,9 @@ import com.shreyas.saleslens.model.QualityScore;
 import com.shreyas.saleslens.model.enums.ConflictStatus;
 import com.shreyas.saleslens.repository.ConflictRecordRepository;
 import com.shreyas.saleslens.repository.QualityScoreRepository;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.lang.Nullable;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.cache.annotation.Caching;
@@ -23,16 +23,22 @@ import java.util.UUID;
  * Uses Spring's @Cacheable abstraction backed by Redis.
  */
 @Service
-@RequiredArgsConstructor
 @Slf4j
 public class QualityCacheService {
 
     private final QualityScoreRepository qualityScoreRepository;
 
+    @Nullable
     private ConflictRecordRepository conflictRecordRepository;
 
+    public QualityCacheService(QualityScoreRepository qualityScoreRepository) {
+        this.qualityScoreRepository = qualityScoreRepository;
+    }
+
     @Autowired(required = false)
-    public void setConflictRecordRepository(ConflictRecordRepository conflictRecordRepository) {
+    public QualityCacheService(QualityScoreRepository qualityScoreRepository,
+                               @Nullable ConflictRecordRepository conflictRecordRepository) {
+        this.qualityScoreRepository = qualityScoreRepository;
         this.conflictRecordRepository = conflictRecordRepository;
     }
 
@@ -99,8 +105,11 @@ public class QualityCacheService {
         return conflictRecordRepository.findByStatus(ConflictStatus.OPEN, Pageable.unpaged())
                 .getContent()
                 .stream()
-                .filter(cr -> cr.getSourceA().getId().equals(sourceId)
-                        || cr.getSourceB().getId().equals(sourceId))
+                .filter(cr -> {
+                    boolean aMatches = cr.getSourceA().getId().equals(sourceId);
+                    boolean bMatches = cr.getSourceB().getId().equals(sourceId);
+                    return aMatches || bMatches;
+                })
                 .count();
     }
 
