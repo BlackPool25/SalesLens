@@ -3,6 +3,7 @@ package com.shreyas.saleslens.service.conflict;
 import com.shreyas.saleslens.model.*;
 import com.shreyas.saleslens.model.enums.ConflictStatus;
 import com.shreyas.saleslens.repository.*;
+import com.shreyas.saleslens.service.cache.QualityCacheService;
 import dev.langchain4j.model.chat.ChatLanguageModel;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -41,6 +42,9 @@ public class ConflictResolutionService {
 
     @Autowired(required = false)
     private ChatLanguageModel chatLanguageModel;
+
+    @Autowired(required = false)
+    private QualityCacheService qualityCacheService;
 
     /**
      * Resolve a conflict by updating the canonical entity with the chosen value.
@@ -90,6 +94,11 @@ public class ConflictResolutionService {
         ConflictRecord saved = conflictRecordRepository.save(record);
         log.info("Conflict {} resolved by user {}", conflictId, resolvedBy.getId());
 
+        // Evict conflict cache for source A (and source B if available)
+        if (qualityCacheService != null && record.getSourceA() != null) {
+            qualityCacheService.evictConflictCache(record.getSourceA().getId());
+        }
+
         return Optional.of(saved);
     }
 
@@ -114,6 +123,11 @@ public class ConflictResolutionService {
 
         ConflictRecord saved = conflictRecordRepository.save(record);
         log.info("Conflict {} suppressed by user {}", conflictId, resolvedBy.getId());
+
+        // Evict conflict cache for source A (and source B if available)
+        if (qualityCacheService != null && record.getSourceA() != null) {
+            qualityCacheService.evictConflictCache(record.getSourceA().getId());
+        }
 
         return Optional.of(saved);
     }

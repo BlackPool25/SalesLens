@@ -4,6 +4,7 @@ import com.shreyas.saleslens.model.*;
 import com.shreyas.saleslens.model.enums.JobStatus;
 import com.shreyas.saleslens.model.enums.QualitySeverity;
 import com.shreyas.saleslens.repository.*;
+import com.shreyas.saleslens.service.cache.QualityCacheService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
@@ -28,6 +29,7 @@ public class QualityEngineService {
     private final RejectedRecordRepository rejectedRecordRepository;
     private final QualityScoreService qualityScoreService;
     private final ProfilingService profilingService;
+    private final QualityCacheService qualityCacheService;
 
     @Transactional
     public void runQualityEngine(UUID jobId) {
@@ -135,5 +137,10 @@ public class QualityEngineService {
 
         log.info("Quality Engine completed for job {}: processed={}, issues={}, passed={}, failed={}",
                 jobId, totalRecords, allIssues.size(), passedCount, failedCount);
+
+        // Evict quality cache so subsequent reads see fresh data
+        if (job != null && job.getSource() != null) {
+            qualityCacheService.evictQualityCache(job.getSource().getId());
+        }
     }
 }
