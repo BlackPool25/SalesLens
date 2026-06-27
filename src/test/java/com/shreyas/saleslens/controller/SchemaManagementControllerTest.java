@@ -1,5 +1,6 @@
 package com.shreyas.saleslens.controller;
-
+import com.shreyas.saleslens.config.TestCacheConfig;
+import org.springframework.context.annotation.Import;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.shreyas.saleslens.config.filters.JwtFilter;
 import com.shreyas.saleslens.dto.SchemaDemoteRequest;
@@ -26,6 +27,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(SchemaManagementController.class)
+@Import(TestCacheConfig.class)
 class SchemaManagementControllerTest {
 
     @Autowired

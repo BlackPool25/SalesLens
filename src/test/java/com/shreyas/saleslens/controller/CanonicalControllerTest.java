@@ -1,5 +1,6 @@
 package com.shreyas.saleslens.controller;
-
+import com.shreyas.saleslens.config.TestCacheConfig;
+import org.springframework.context.annotation.Import;
 import com.shreyas.saleslens.config.filters.JwtFilter;
 import com.shreyas.saleslens.dto.CanonicalCustomerDto;
 import com.shreyas.saleslens.dto.CanonicalOrderDto;
@@ -44,6 +45,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(CanonicalController.class)
+@Import(TestCacheConfig.class)
 class CanonicalControllerTest {
 
     @Autowired

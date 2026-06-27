@@ -29,8 +29,12 @@ public class QualityCacheService {
 
     private final QualityScoreRepository qualityScoreRepository;
 
-    @Autowired(required = false)
     private ConflictRecordRepository conflictRecordRepository;
+
+    @Autowired(required = false)
+    public void setConflictRecordRepository(ConflictRecordRepository conflictRecordRepository) {
+        this.conflictRecordRepository = conflictRecordRepository;
+    }
 
     /**
      * Retrieves all quality scores for a source, ordered by creation date descending.
@@ -59,7 +63,12 @@ public class QualityCacheService {
         log.debug("Building quality summary for source {}", sourceId);
         List<QualityScore> scores = qualityScoreRepository.findBySourceIdOrderByCreatedAtDesc(sourceId);
         if (scores.isEmpty()) {
-            return Map.of("sourceId", sourceId, "scoreOverall", null, "letterGrade", null, "scoreCount", 0);
+            Map<String, Object> emptySummary = new HashMap<>();
+            emptySummary.put("sourceId", sourceId);
+            emptySummary.put("scoreOverall", null);
+            emptySummary.put("letterGrade", null);
+            emptySummary.put("scoreCount", 0);
+            return emptySummary;
         }
         QualityScore latest = scores.get(0);
         Map<String, Object> summary = new HashMap<>();

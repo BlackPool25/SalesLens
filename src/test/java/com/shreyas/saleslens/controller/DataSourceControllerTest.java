@@ -1,5 +1,6 @@
 package com.shreyas.saleslens.controller;
-
+import com.shreyas.saleslens.config.TestCacheConfig;
+import org.springframework.context.annotation.Import;
 import com.shreyas.saleslens.config.filters.JwtFilter;
 import com.shreyas.saleslens.dto.CreateSourceRequest;
 import com.shreyas.saleslens.dto.DataSourceResponse;
@@ -38,6 +39,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(DataSourceController.class)
+@Import(TestCacheConfig.class)
 class DataSourceControllerTest {
 
     @Autowired

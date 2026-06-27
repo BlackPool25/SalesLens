@@ -1,5 +1,6 @@
 package com.shreyas.saleslens.controller;
-
+import com.shreyas.saleslens.config.TestCacheConfig;
+import org.springframework.context.annotation.Import;
 import com.shreyas.saleslens.config.filters.JwtFilter;
 import com.shreyas.saleslens.model.ConflictRecord;
 import com.shreyas.saleslens.model.DataSource;
@@ -41,6 +42,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(ConflictController.class)
+@Import(TestCacheConfig.class)
 class ConflictControllerTest {
 
     @Autowired
@@ -91,7 +93,7 @@ class ConflictControllerTest {
     }
 
     @Test
-    @WithMockUser(roles = "ADMIN")(roles = "ADMIN")
+    @WithMockUser(roles = "ADMIN")
     void testListConflicts() throws Exception {
         ConflictRecord record = createTestRecord();
 
@@ -125,7 +127,7 @@ class ConflictControllerTest {
     }
 
     @Test
-    @WithMockUser(roles = "ADMIN")(roles = "ADMIN")
+    @WithMockUser(roles = "ADMIN")
     void testGetConflictById_NotFound() throws Exception {
         UUID id = UUID.randomUUID();
 
@@ -157,7 +159,7 @@ class ConflictControllerTest {
     }
 
     @Test
-    @WithMockUser(roles = "ADMIN")(roles = "ADMIN")
+    @WithMockUser(roles = "ADMIN")
     void testResolveConflict_NotFound() throws Exception {
         UUID id = UUID.randomUUID();
         String json = "{\"chosenValue\":\"value\"}";
@@ -189,7 +191,7 @@ class ConflictControllerTest {
     }
 
     @Test
-    @WithMockUser(roles = "ADMIN")(roles = "ADMIN")
+    @WithMockUser(roles = "ADMIN")
     void testSuppressConflict_NotFound() throws Exception {
         UUID id = UUID.randomUUID();
 
