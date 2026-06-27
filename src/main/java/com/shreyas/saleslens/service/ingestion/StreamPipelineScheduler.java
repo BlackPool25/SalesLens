@@ -15,6 +15,8 @@ import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -52,12 +54,19 @@ public class StreamPipelineScheduler {
      * Marks them FAILED so they are not lost without trace but also not retried
      * automatically (records may need manual reprocessing).
      */
-    @PostConstruct
+    @EventListener(ApplicationReadyEvent.class)
     @Transactional
     public void recoverOrphanedWindows() {
         List<IngestionJob> orphaned = ingestionJobRepository.findAll().stream()
-                .filter(j -> j.getSource().getSourceType() == SourceType.KAFKA_STREAM
-                        && j.getStatus() == JobStatus.PENDING)
+                .filter(j -> {
+                    try {
+                        return j.getSource().getSourceType() == SourceType.KAFKA_STREAM
+                                && j.getStatus() == JobStatus.PENDING;
+                    } catch (Exception e) {
+                        log.warn("Could not check source type for job {}: {}", j.getId(), e.getMessage());
+                        return false;
+                    }
+                })
                 .toList();
         for (IngestionJob job : orphaned) {
             log.warn("Recovering orphaned streaming job {} for source {} from prior session",
