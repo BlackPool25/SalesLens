@@ -10,6 +10,7 @@ export interface DataSourceResponse {
   trustScore: number
   active: boolean
   createdAt: string
+  lastSyncAt?: string
 }
 
 export interface CreateSourceRequest {
