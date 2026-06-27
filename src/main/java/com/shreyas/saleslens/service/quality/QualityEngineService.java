@@ -44,6 +44,7 @@ public class QualityEngineService {
         run.setSource(job.getSource());
         run.setRunTimestamp(Instant.now());
         run.setFailedRecords(0);
+        run.setTotalRecords(0);
         run = qualityRunRepository.save(run);
 
         List<QualityIssue> allIssues = new ArrayList<>();
