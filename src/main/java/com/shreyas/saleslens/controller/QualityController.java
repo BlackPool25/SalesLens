@@ -39,12 +39,13 @@ public class QualityController {
             @RequestParam(required = false) QualitySeverity severity,
             @RequestParam(required = false) QualityDimension dimension,
             @RequestParam(required = false) IssueStatus status,
+            @RequestParam(required = false) UUID jobId,
             @PageableDefault(size = 20, sort = "createdAt") Pageable pageable) {
 
-        log.info("Fetching filtered quality issues: sourceId={}, severity={}, dimension={}, status={}",
-                sourceId, severity, dimension, status);
+        log.info("Fetching filtered quality issues: sourceId={}, severity={}, dimension={}, status={}, jobId={}",
+                sourceId, severity, dimension, status, jobId);
 
-        Page<QualityIssue> issues = qualityIssueRepository.findFiltered(sourceId, severity, dimension, status, pageable);
+        Page<QualityIssue> issues = qualityIssueRepository.findFiltered(sourceId, severity, dimension, status, jobId, pageable);
         Page<QualityIssueDto> dtoPage = issues.map(this::mapIssueToDto);
 
         return ResponseEntity.ok(dtoPage);

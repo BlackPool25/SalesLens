@@ -1,5 +1,6 @@
 package com.shreyas.saleslens.controller;
-
+import com.shreyas.saleslens.config.TestCacheConfig;
+import org.springframework.context.annotation.Import;
 import com.shreyas.saleslens.config.filters.JwtFilter;
 import com.shreyas.saleslens.dto.QualityIssueDto;
 import com.shreyas.saleslens.dto.QualityScoreDto;
@@ -34,6 +35,7 @@ import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.*;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -42,6 +44,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(QualityController.class)
+@Import(TestCacheConfig.class)
 class QualityControllerTest {
 
     @Autowired
@@ -95,7 +98,7 @@ class QualityControllerTest {
         issue.setStatus(IssueStatus.OPEN);
 
         // Stub findFiltered mapping
-        when(qualityIssueRepository.findFiltered(eq(sourceId), eq(QualitySeverity.HIGH), eq(QualityDimension.VALIDITY), eq(IssueStatus.OPEN), any(Pageable.class)))
+        when(qualityIssueRepository.findFiltered(eq(sourceId), eq(QualitySeverity.HIGH), eq(QualityDimension.VALIDITY), eq(IssueStatus.OPEN), isNull(), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(issue), PageRequest.of(0, 20), 1));
 
         mockMvc.perform(get("/api/v1/quality/issues")

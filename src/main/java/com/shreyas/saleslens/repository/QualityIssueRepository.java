@@ -33,12 +33,14 @@ public interface QualityIssueRepository extends JpaRepository<QualityIssue, UUID
           AND (:severity IS NULL OR qi.severity = :severity)
           AND (:dimension IS NULL OR qi.dimension = :dimension)
           AND (:status IS NULL OR qi.status = :status)
+          AND (:jobId IS NULL OR qi.run.job.id = :jobId)
         """)
     Page<QualityIssue> findFiltered(
             @Param("sourceId") UUID sourceId,
             @Param("severity") QualitySeverity severity,
             @Param("dimension") QualityDimension dimension,
             @Param("status") IssueStatus status,
+            @Param("jobId") UUID jobId,
             Pageable pageable
     );
 }
