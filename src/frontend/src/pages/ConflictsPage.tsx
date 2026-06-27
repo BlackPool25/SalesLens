@@ -156,7 +156,7 @@ export function ConflictsPage() {
           <div className="flex-1 flex items-center justify-center text-semantic-error">
             Failed to load conflicts.
           </div>
-        ) : data?.content.length === 0 ? (
+        ) : !data?.content || data.content.length === 0 ? (
           <div className="flex-1 flex flex-col items-center justify-center rounded-xl border border-dashed border-border-default bg-surface-base/50 p-8 text-center">
             <div className="rounded-full bg-surface-elevated p-3 mb-4">
               <Check className="h-6 w-6 text-semantic-success" />
@@ -168,7 +168,7 @@ export function ConflictsPage() {
           </div>
         ) : (
           <div className="flex flex-col gap-4">
-            {data?.content.map((conflict) => (
+            {(data?.content || []).map((conflict) => (
               <ConflictCard
                 key={conflict.id}
                 conflict={conflict}

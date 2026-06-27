@@ -164,7 +164,7 @@ export function QualityIssuesSection({ sourceId }: QualityIssuesSectionProps) {
                     Failed to load quality issues. Please try again.
                   </td>
                 </tr>
-              ) : data?.content.length === 0 ? (
+              ) : !data?.content || data.content.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="px-4 py-12 text-center text-slate-500 text-body">
                     <div className="flex flex-col items-center justify-center gap-2">
@@ -174,7 +174,7 @@ export function QualityIssuesSection({ sourceId }: QualityIssuesSectionProps) {
                   </td>
                 </tr>
               ) : (
-                data?.content.map((issue) => (
+                (data?.content || []).map((issue) => (
                   <tr key={issue.id} className="hover:bg-slate-50 transition-colors">
                     <td className="px-4 py-3 text-body-sm font-medium text-slate-900">
                       {issue.sourceFieldName}

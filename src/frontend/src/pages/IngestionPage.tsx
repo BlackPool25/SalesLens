@@ -159,7 +159,7 @@ export function IngestionPage() {
             disabled={isLoadingSources}
           >
             <option value="">Select a source...</option>
-            {sourcesData?.content
+            {(sourcesData?.content || [])
               .filter(s => s.sourceType === 'CSV_FILE' || s.sourceType === 'EXCEL_FILE')
               .map(source => (
               <option key={source.id} value={source.id}>
@@ -287,14 +287,14 @@ export function IngestionPage() {
                     Failed to load jobs.
                   </td>
                 </tr>
-              ) : !jobsData?.content || jobsData.content.length === 0 ? (
+              ) : !jobsData?.content || jobsData?.content?.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="px-4 py-8 text-center text-text-secondary">
                     No ingestion jobs yet.
                   </td>
                 </tr>
               ) : (
-                jobsData.content.map((job) => (
+                (jobsData?.content || []).map((job) => (
                   <tr key={job.id} className="hover:bg-surface-hover/50 transition-colors">
                     <td className="px-4 py-3 font-mono text-meta text-text-secondary" title={job.id}>
                       {job.id.substring(0, 8)}...

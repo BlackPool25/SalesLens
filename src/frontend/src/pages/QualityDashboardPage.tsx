@@ -63,7 +63,7 @@ export function QualityDashboardPage() {
             disabled={isLoadingSources}
           >
             <option value="">Select a source...</option>
-            {sourcesData?.content.map((source) => (
+            {(sourcesData?.content || []).map((source) => (
               <option key={source.id} value={source.id}>
                 {source.name}
               </option>
