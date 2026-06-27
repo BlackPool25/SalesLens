@@ -103,7 +103,7 @@ class DataSourceControllerTest {
     }
 
     @Test
-    void createSource_returnsString() throws Exception {
+    void createSource_returnsSourceId() throws Exception {
         Users adminUser = new Users();
         adminUser.setId(1L);
         adminUser.setUsername("admin");
@@ -115,8 +115,9 @@ class DataSourceControllerTest {
                         adminPrincipal, adminPrincipal.getPassword(),
                         List.of(new SimpleGrantedAuthority("ROLE_ADMIN")));
 
+        var sourceId = UUID.randomUUID();
         when(dataSourceService.createSource(any(CreateSourceRequest.class), eq(1L)))
-                .thenReturn("Test Source saved successfully");
+                .thenReturn(sourceId);
 
         String json = """
                 {
@@ -136,7 +137,7 @@ class DataSourceControllerTest {
                             .content(json))
                     .andDo(print())
                     .andExpect(status().isOk())
-                    .andExpect(content().string("Test Source saved successfully"));
+                    .andExpect(jsonPath("$.id").value(sourceId.toString()));
         } finally {
             SecurityContextHolder.clearContext();
         }

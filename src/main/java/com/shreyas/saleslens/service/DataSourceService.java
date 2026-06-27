@@ -22,7 +22,7 @@ public class DataSourceService {
     private final UsersRepository usersRepository;
     private final DataSourceMapper dataSourceMapper;
 
-    public String createSource(CreateSourceRequest request, Long userId) {
+    public UUID createSource(CreateSourceRequest request, Long userId) {
         DataSource dataSource = new DataSource();
         dataSource.setName(request.getName());
         dataSource.setSourceType(request.getSourceType());
@@ -31,7 +31,7 @@ public class DataSourceService {
         dataSource.setConnectionConfig(request.getConnectionConfig());
         dataSource.setCreatedBy(usersRepository.getReferenceById(userId));
         dataSourceRepository.save(dataSource);
-        return dataSource.getName() + " saved successfully";
+        return dataSource.getId();
     }
 
     public Page<DataSourceResponse> getAllSources(Pageable pageable) {
