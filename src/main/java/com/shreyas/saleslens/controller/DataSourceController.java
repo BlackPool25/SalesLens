@@ -14,10 +14,9 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.Objects;
 import java.util.UUID;
 
 @RestController
@@ -37,11 +36,10 @@ public class DataSourceController {
         @ApiResponse(responseCode = "403", description = "Insufficient permissions (requires ADMIN or ANALYST role)")
     })
     @PostMapping("/create-source")
-    public String createSource(@Valid @RequestBody CreateSourceRequest request) {
+    public String createSource(@Valid @RequestBody CreateSourceRequest request,
+                               @AuthenticationPrincipal UserPrincipal principal) {
 
-        UserPrincipal userPrincipal = (UserPrincipal) Objects.requireNonNull(SecurityContextHolder.getContext().getAuthentication()).getPrincipal();
-
-        return dataSourceService.createSource(request, userPrincipal.getId());
+        return dataSourceService.createSource(request, principal.getId());
     }
 
     @Operation(summary = "Get all data sources", description = "Returns a paginated list of all registered data sources")
