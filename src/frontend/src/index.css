@@ -1,0 +1,74 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    /* Surface hierarchy */
+    --surface-base: #f8fafc;          /* slate-50 */
+    --surface-elevated: #f1f5f9;      /* slate-100 */
+    --surface-hover: #e2e8f0;         /* slate-200 */
+    --surface-input: #f1f5f9;         /* slate-100 */
+
+    /* Text hierarchy */
+    --text-primary: #0f172a;          /* slate-900 */
+    --text-secondary: #64748b;        /* slate-500 */
+    --text-tertiary: #94a3b8;         /* slate-400 */
+    --text-muted: #cbd5e1;            /* slate-300 */
+
+    /* Accent (Indigo) */
+    --accent-primary: #4f46e5;        /* indigo-600 */
+    --accent-hover: #4338ca;          /* indigo-700 */
+    --accent-subtle: #eef2ff;         /* indigo-50 */
+
+    /* Border */
+    --border-default: #e2e8f0cc;      /* slate-200/80 */
+    --border-emphasis: #cbd5e1;       /* slate-300 */
+    --border-accent: #6366f1;         /* indigo-500 */
+
+    /* Semantic colors */
+    --semantic-success: #10b981;      /* emerald-500 */
+    --semantic-warning: #f59e0b;      /* amber-500 */
+    --semantic-error: #f43f5e;        /* rose-500 */
+    --semantic-info: #3b82f6;         /* blue-500 */
+
+    /* Chart colors */
+    --chart-1: #6366f1;               /* indigo-500 */
+    --chart-2: #14b8a6;               /* teal-500 */
+    --chart-3: #f59e0b;               /* amber-500 */
+    --chart-4: #fb7185;               /* rose-400 */
+    --chart-5: #8b5cf6;               /* violet-500 */
+  }
+
+  /* Typography classes */
+  .text-h1 { font-family: 'Inter', sans-serif; font-weight: 600; font-size: 24px; letter-spacing: -0.02em; }
+  .text-h2 { font-family: 'Inter', sans-serif; font-weight: 600; font-size: 18px; }
+  .text-h3 { font-family: 'Inter', sans-serif; font-weight: 600; font-size: 16px; }
+  .text-body { font-family: 'Inter', sans-serif; font-weight: 400; font-size: 14px; }
+  .text-body-sm { font-family: 'Inter', sans-serif; font-weight: 400; font-size: 13px; }
+  .text-meta { font-family: 'Inter', sans-serif; font-weight: 400; font-size: 12px; }
+  .text-data { font-family: 'Inter', sans-serif; font-weight: 400; font-size: 14px; font-variant-numeric: tabular-nums; }
+  .text-data-lg { font-family: 'Inter', sans-serif; font-weight: 600; font-size: 20px; font-variant-numeric: tabular-nums; }
+  .text-label { font-family: 'Inter', sans-serif; font-weight: 500; font-size: 13px; }
+  .text-label-sm { font-family: 'Inter', sans-serif; font-weight: 500; font-size: 12px; }
+
+  /* Base styles */
+  body { background: var(--surface-base); color: var(--text-primary); font-family: 'Inter', sans-serif; }
+  * { border-color: var(--border-default); }
+}
+
+@theme {
+  --color-surface-base: var(--surface-base);
+  --color-surface-elevated: var(--surface-elevated);
+  --color-surface-hover: var(--surface-hover);
+  --color-accent-primary: var(--accent-primary);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-subtle: var(--accent-subtle);
+  --color-semantic-success: var(--semantic-success);
+  --color-semantic-warning: var(--semantic-warning);
+  --color-semantic-error: var(--semantic-error);
+  --color-semantic-info: var(--semantic-info);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+}
