@@ -17,6 +17,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -52,6 +53,7 @@ public class StreamPipelineScheduler {
      * automatically (records may need manual reprocessing).
      */
     @PostConstruct
+    @Transactional
     public void recoverOrphanedWindows() {
         List<IngestionJob> orphaned = ingestionJobRepository.findAll().stream()
                 .filter(j -> j.getSource().getSourceType() == SourceType.KAFKA_STREAM
