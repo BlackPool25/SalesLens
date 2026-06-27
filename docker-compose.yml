@@ -17,6 +17,12 @@ services:
       OLLAMA_MODEL_NAME: qwen3.5:9b
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD-SHELL", "ss -tln | grep -q 8080 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 40s
 
   postgres:
     image: postgres:alpine
@@ -64,4 +70,4 @@ services:
       - "3000:80"
     depends_on:
       backend:
-        condition: service_started
+        condition: service_healthy

@@ -8,20 +8,20 @@ spring:
 
   datasource:
     url: ${DB_URL:jdbc:postgresql://postgres:5432/saleslens_db}
-    username: ${DB_USERNAME}
-    password: ${DB_PASSWORD}
+    username: ${DB_USERNAME:postgresadmin}
+    password: ${DB_PASSWORD:adminpassword}
     driver-class-name: org.postgresql.Driver
 
   data:
     redis:
       host: ${REDIS_HOST:redis}
       port: ${REDIS_PORT:6379}
-      password: ${REDIS_PASS}
+      password: ${REDIS_PASS:}
 
 
   jpa:
     hibernate:
-      ddl-auto: validate
+      ddl-auto: none
     show-sql: true
     properties:
       hibernate:
@@ -54,7 +54,7 @@ spring:
 
 # Default admin credentials (seeded by V18): admin / Admin123!
 jwt:
-  secret: ${JWT_SECRET}
+  secret: ${JWT_SECRET:dev-jwt-secret-saleslens-local-development}
   access-token-expiry: 900000
   refresh-token-expiry: 604800000
 
