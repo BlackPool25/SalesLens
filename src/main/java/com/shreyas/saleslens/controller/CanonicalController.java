@@ -13,6 +13,10 @@ import com.shreyas.saleslens.repository.CanonicalOrderRepository;
 import com.shreyas.saleslens.repository.CanonicalProductRepository;
 import com.shreyas.saleslens.repository.CanonicalRegionRepository;
 import com.shreyas.saleslens.repository.CanonicalSalespersonRepository;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -31,6 +35,7 @@ import org.springframework.web.bind.annotation.RestController;
 @Slf4j
 @Transactional(readOnly = true)
 @PreAuthorize("hasAnyRole('ADMIN', 'ANALYST')")
+@Tag(name = "Canonical Data", description = "Endpoints for querying canonical (master) entity data")
 public class CanonicalController {
 
     private final CanonicalMapper canonicalMapper;
@@ -41,6 +46,12 @@ public class CanonicalController {
     private final CanonicalSalespersonRepository canonicalSalespersonRepository;
     private final CanonicalRegionRepository canonicalRegionRepository;
 
+    @Operation(summary = "Get canonical customers", description = "Returns a paginated list of canonical customer records")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Customers retrieved successfully"),
+        @ApiResponse(responseCode = "401", description = "Missing or invalid JWT token"),
+        @ApiResponse(responseCode = "403", description = "Insufficient permissions (requires ADMIN or ANALYST role)")
+    })
     @GetMapping("/customers")
     public ResponseEntity<Page<CanonicalCustomerDto>> getCustomers(
             @PageableDefault(size = 20, sort = "createdAt") Pageable pageable) {
@@ -50,6 +61,12 @@ public class CanonicalController {
         return ResponseEntity.ok(result);
     }
 
+    @Operation(summary = "Get canonical products", description = "Returns a paginated list of canonical product records")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Products retrieved successfully"),
+        @ApiResponse(responseCode = "401", description = "Missing or invalid JWT token"),
+        @ApiResponse(responseCode = "403", description = "Insufficient permissions (requires ADMIN or ANALYST role)")
+    })
     @GetMapping("/products")
     public ResponseEntity<Page<CanonicalProductDto>> getProducts(
             @PageableDefault(size = 20, sort = "createdAt") Pageable pageable) {
@@ -59,6 +76,12 @@ public class CanonicalController {
         return ResponseEntity.ok(result);
     }
 
+    @Operation(summary = "Get canonical orders", description = "Returns a paginated list of canonical order records")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Orders retrieved successfully"),
+        @ApiResponse(responseCode = "401", description = "Missing or invalid JWT token"),
+        @ApiResponse(responseCode = "403", description = "Insufficient permissions (requires ADMIN or ANALYST role)")
+    })
     @GetMapping("/orders")
     public ResponseEntity<Page<CanonicalOrderDto>> getOrders(
             @PageableDefault(size = 20, sort = "createdAt") Pageable pageable) {
@@ -68,6 +91,12 @@ public class CanonicalController {
         return ResponseEntity.ok(result);
     }
 
+    @Operation(summary = "Get canonical order line items", description = "Returns a paginated list of canonical order line item records")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Order line items retrieved successfully"),
+        @ApiResponse(responseCode = "401", description = "Missing or invalid JWT token"),
+        @ApiResponse(responseCode = "403", description = "Insufficient permissions (requires ADMIN or ANALYST role)")
+    })
     @GetMapping("/order-line-items")
     public ResponseEntity<Page<CanonicalOrderLineItemDto>> getOrderLineItems(
             @PageableDefault(size = 20, sort = "createdAt") Pageable pageable) {
@@ -77,6 +106,12 @@ public class CanonicalController {
         return ResponseEntity.ok(result);
     }
 
+    @Operation(summary = "Get canonical salespersons", description = "Returns a paginated list of canonical salesperson records")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Salespersons retrieved successfully"),
+        @ApiResponse(responseCode = "401", description = "Missing or invalid JWT token"),
+        @ApiResponse(responseCode = "403", description = "Insufficient permissions (requires ADMIN or ANALYST role)")
+    })
     @GetMapping("/salespersons")
     public ResponseEntity<Page<CanonicalSalespersonDto>> getSalespersons(
             @PageableDefault(size = 20, sort = "createdAt") Pageable pageable) {
@@ -86,6 +121,12 @@ public class CanonicalController {
         return ResponseEntity.ok(result);
     }
 
+    @Operation(summary = "Get canonical regions", description = "Returns a paginated list of canonical region records")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Regions retrieved successfully"),
+        @ApiResponse(responseCode = "401", description = "Missing or invalid JWT token"),
+        @ApiResponse(responseCode = "403", description = "Insufficient permissions (requires ADMIN or ANALYST role)")
+    })
     @GetMapping("/regions")
     public ResponseEntity<Page<CanonicalRegionDto>> getRegions(
             @PageableDefault(size = 20, sort = "createdAt") Pageable pageable) {

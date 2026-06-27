@@ -6,6 +6,10 @@ import com.shreyas.saleslens.model.ConflictRecord;
 import com.shreyas.saleslens.model.enums.ConflictStatus;
 import com.shreyas.saleslens.repository.ConflictRecordRepository;
 import com.shreyas.saleslens.service.conflict.ConflictResolutionService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -25,11 +29,18 @@ import java.util.UUID;
 @Slf4j
 @Transactional(readOnly = true)
 @PreAuthorize("hasAnyRole('ADMIN', 'ANALYST')")
+@Tag(name = "Conflicts", description = "Endpoints for resolving and managing data conflicts between sources")
 public class ConflictController {
 
     private final ConflictResolutionService conflictResolutionService;
     private final ConflictRecordRepository conflictRecordRepository;
 
+    @Operation(summary = "List conflicts", description = "Returns a paginated list of data conflicts with optional filtering by entity type, field name, status, and source")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Conflicts retrieved successfully"),
+        @ApiResponse(responseCode = "401", description = "Missing or invalid JWT token"),
+        @ApiResponse(responseCode = "403", description = "Insufficient permissions (requires ADMIN or ANALYST role)")
+    })
     @GetMapping
     public ResponseEntity<Page<ConflictRecordDto>> listConflicts(
             @RequestParam(required = false) String entityType,
@@ -48,6 +59,13 @@ public class ConflictController {
         return ResponseEntity.ok(dtoPage);
     }
 
+    @Operation(summary = "Get conflict by ID", description = "Returns a single conflict with full field-level detail and source provenance")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Conflict retrieved successfully"),
+        @ApiResponse(responseCode = "401", description = "Missing or invalid JWT token"),
+        @ApiResponse(responseCode = "403", description = "Insufficient permissions (requires ADMIN or ANALYST role)"),
+        @ApiResponse(responseCode = "404", description = "Conflict not found")
+    })
     @GetMapping("/{id}")
     public ResponseEntity<ConflictRecordDto> getConflict(@PathVariable UUID id) {
         log.info("Fetching conflict: {}", id);
@@ -56,6 +74,14 @@ public class ConflictController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
+    @Operation(summary = "Resolve conflict", description = "Resolves a conflict by providing the chosen canonical value")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Conflict resolved successfully"),
+        @ApiResponse(responseCode = "400", description = "Invalid request body / validation error"),
+        @ApiResponse(responseCode = "401", description = "Missing or invalid JWT token"),
+        @ApiResponse(responseCode = "403", description = "Insufficient permissions (requires ADMIN or ANALYST role)"),
+        @ApiResponse(responseCode = "404", description = "Conflict not found")
+    })
     @PutMapping("/{id}/resolve")
     @Transactional
     public ResponseEntity<ConflictRecordDto> resolveConflict(
@@ -67,6 +93,13 @@ public class ConflictController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
+    @Operation(summary = "Suppress conflict", description = "Suppresses a conflict permanently without resolution")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Conflict suppressed successfully"),
+        @ApiResponse(responseCode = "401", description = "Missing or invalid JWT token"),
+        @ApiResponse(responseCode = "403", description = "Insufficient permissions (requires ADMIN or ANALYST role)"),
+        @ApiResponse(responseCode = "404", description = "Conflict not found")
+    })
     @PutMapping("/{id}/suppress")
     @Transactional
     public ResponseEntity<ConflictRecordDto> suppressConflict(@PathVariable UUID id) {

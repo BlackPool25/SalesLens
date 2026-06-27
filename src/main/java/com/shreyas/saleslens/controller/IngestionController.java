@@ -1,6 +1,10 @@
 package com.shreyas.saleslens.controller;
 
 import com.shreyas.saleslens.service.ingestion.IngestionOrchestrator;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -19,10 +23,18 @@ import java.util.UUID;
 @RequestMapping("/api/v1/ingest")
 @RequiredArgsConstructor
 @PreAuthorize("hasRole('ADMIN')")
+@Tag(name = "Ingestion", description = "Endpoints for ingesting sales data from CSV, Excel, and JDBC sources")
 public class IngestionController {
 
     private final IngestionOrchestrator ingestionOrchestrator;
 
+    @Operation(summary = "Upload CSV file", description = "Uploads a CSV file for ingestion, returning a job ID for status tracking")
+    @ApiResponses({
+        @ApiResponse(responseCode = "202", description = "CSV ingestion job accepted"),
+        @ApiResponse(responseCode = "400", description = "Invalid file type (only .csv accepted)"),
+        @ApiResponse(responseCode = "401", description = "Missing or invalid JWT token"),
+        @ApiResponse(responseCode = "403", description = "Insufficient permissions (requires ADMIN role)")
+    })
     @PostMapping(value = "/csv", consumes = "multipart/form-data")
     public ResponseEntity<Map<String, Object>> uploadCsv(
             @RequestParam("file") MultipartFile file,
@@ -49,6 +61,13 @@ public class IngestionController {
         ));
     }
 
+    @Operation(summary = "Upload Excel file", description = "Uploads an .xlsx file for ingestion, returning a job ID for status tracking")
+    @ApiResponses({
+        @ApiResponse(responseCode = "202", description = "Excel ingestion job accepted"),
+        @ApiResponse(responseCode = "400", description = "Invalid file type (only .xlsx accepted)"),
+        @ApiResponse(responseCode = "401", description = "Missing or invalid JWT token"),
+        @ApiResponse(responseCode = "403", description = "Insufficient permissions (requires ADMIN role)")
+    })
     @PostMapping(value = "/excel", consumes = "multipart/form-data")
     public ResponseEntity<Map<String, Object>> uploadExcel(
             @RequestParam("file") MultipartFile file,
@@ -74,6 +93,12 @@ public class IngestionController {
         ));
     }
 
+    @Operation(summary = "Trigger JDBC ingestion", description = "Manually triggers ingestion for a registered JDBC data source, returning a job ID for status tracking")
+    @ApiResponses({
+        @ApiResponse(responseCode = "202", description = "JDBC ingestion job accepted"),
+        @ApiResponse(responseCode = "401", description = "Missing or invalid JWT token"),
+        @ApiResponse(responseCode = "403", description = "Insufficient permissions (requires ADMIN role)")
+    })
     @PostMapping("/jdbc/{sourceId}")
     public ResponseEntity<Map<String, Object>> triggerJdbc(@PathVariable UUID sourceId) {
         UUID jobId = ingestionOrchestrator.triggerJdbcIngestion(sourceId);

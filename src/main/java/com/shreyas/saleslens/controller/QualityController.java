@@ -9,6 +9,10 @@ import com.shreyas.saleslens.model.enums.QualityDimension;
 import com.shreyas.saleslens.model.enums.QualitySeverity;
 import com.shreyas.saleslens.repository.QualityIssueRepository;
 import com.shreyas.saleslens.repository.QualityScoreRepository;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -27,11 +31,19 @@ import java.util.UUID;
 @Slf4j
 @Transactional
 @PreAuthorize("hasAnyRole('ADMIN', 'ANALYST')")
+@Tag(name = "Quality", description = "Endpoints for querying data quality issues, scores, and acknowledging issues")
 public class QualityController {
 
     private final QualityIssueRepository qualityIssueRepository;
     private final QualityScoreRepository qualityScoreRepository;
 
+    @Operation(summary = "Get quality issues", description = "Returns a paginated list of data quality issues with optional filtering by source, severity, dimension, and status")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Issues retrieved successfully"),
+        @ApiResponse(responseCode = "400", description = "Invalid filter parameters"),
+        @ApiResponse(responseCode = "401", description = "Missing or invalid JWT token"),
+        @ApiResponse(responseCode = "403", description = "Insufficient permissions (requires ADMIN or ANALYST role)")
+    })
     @GetMapping("/issues")
     @Transactional(readOnly = true)
     public ResponseEntity<Page<QualityIssueDto>> getIssues(
@@ -51,6 +63,13 @@ public class QualityController {
         return ResponseEntity.ok(dtoPage);
     }
 
+    @Operation(summary = "Get quality scores", description = "Returns a paginated list of historical quality scores for a given data source")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Scores retrieved successfully"),
+        @ApiResponse(responseCode = "400", description = "Missing required sourceId parameter"),
+        @ApiResponse(responseCode = "401", description = "Missing or invalid JWT token"),
+        @ApiResponse(responseCode = "403", description = "Insufficient permissions (requires ADMIN or ANALYST role)")
+    })
     @GetMapping("/scores")
     @Transactional(readOnly = true)
     public ResponseEntity<Page<QualityScoreDto>> getScores(
@@ -63,6 +82,13 @@ public class QualityController {
         return ResponseEntity.ok(dtoPage);
     }
 
+    @Operation(summary = "Acknowledge a quality issue", description = "Marks a quality issue as acknowledged")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Issue acknowledged successfully"),
+        @ApiResponse(responseCode = "401", description = "Missing or invalid JWT token"),
+        @ApiResponse(responseCode = "403", description = "Insufficient permissions (requires ADMIN or ANALYST role)"),
+        @ApiResponse(responseCode = "404", description = "Issue not found")
+    })
     @PutMapping("/issues/{issueId}/acknowledge")
     public ResponseEntity<QualityIssueDto> acknowledgeIssue(@PathVariable UUID issueId) {
         log.info("Acknowledging quality issueId: {}", issueId);

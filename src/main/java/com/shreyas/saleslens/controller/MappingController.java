@@ -3,6 +3,10 @@ package com.shreyas.saleslens.controller;
 import com.shreyas.saleslens.dto.FieldMappingResponse;
 import com.shreyas.saleslens.model.FieldMapping;
 import com.shreyas.saleslens.repository.FieldMappingRepository;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -21,10 +25,17 @@ import java.util.UUID;
 @Slf4j
 @Transactional
 @PreAuthorize("hasAnyRole('ADMIN', 'ANALYST')")
+@Tag(name = "Field Mapping", description = "Endpoints for managing semantic field mappings between source schemas and the canonical model")
 public class MappingController {
 
     private final FieldMappingRepository fieldMappingRepository;
 
+    @Operation(summary = "Get field mappings", description = "Returns a paginated list of field mappings for a given data source")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Mappings retrieved successfully"),
+        @ApiResponse(responseCode = "401", description = "Missing or invalid JWT token"),
+        @ApiResponse(responseCode = "403", description = "Insufficient permissions (requires ADMIN or ANALYST role)")
+    })
     @GetMapping
     @Transactional(readOnly = true)
     public ResponseEntity<Page<FieldMappingResponse>> getFieldMappings(
@@ -36,6 +47,13 @@ public class MappingController {
         return ResponseEntity.ok(responses);
     }
 
+    @Operation(summary = "Confirm a field mapping", description = "Confirms an auto-suggested field mapping, changing its status to AUTO_CONFIRMED")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Mapping confirmed successfully"),
+        @ApiResponse(responseCode = "401", description = "Missing or invalid JWT token"),
+        @ApiResponse(responseCode = "403", description = "Insufficient permissions (requires ADMIN or ANALYST role)"),
+        @ApiResponse(responseCode = "404", description = "Mapping not found")
+    })
     @PutMapping("/{mappingId}/confirm")
     public ResponseEntity<FieldMappingResponse> confirmMapping(
             @PathVariable UUID sourceId,
@@ -51,6 +69,14 @@ public class MappingController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
+    @Operation(summary = "Override a field mapping", description = "Overrides a field mapping with a manually specified canonical entity and field")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Mapping overridden successfully"),
+        @ApiResponse(responseCode = "400", description = "Invalid request parameters"),
+        @ApiResponse(responseCode = "401", description = "Missing or invalid JWT token"),
+        @ApiResponse(responseCode = "403", description = "Insufficient permissions (requires ADMIN or ANALYST role)"),
+        @ApiResponse(responseCode = "404", description = "Mapping not found")
+    })
     @PutMapping("/{mappingId}/override")
     public ResponseEntity<FieldMappingResponse> overrideMapping(
             @PathVariable UUID sourceId,
@@ -70,6 +96,13 @@ public class MappingController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
+    @Operation(summary = "Ignore a field mapping", description = "Marks a field mapping as IGNORED, excluding it from the canonical transformation")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Mapping ignored successfully"),
+        @ApiResponse(responseCode = "401", description = "Missing or invalid JWT token"),
+        @ApiResponse(responseCode = "403", description = "Insufficient permissions (requires ADMIN or ANALYST role)"),
+        @ApiResponse(responseCode = "404", description = "Mapping not found")
+    })
     @PutMapping("/{mappingId}/ignore")
     public ResponseEntity<FieldMappingResponse> ignoreMapping(
             @PathVariable UUID sourceId,

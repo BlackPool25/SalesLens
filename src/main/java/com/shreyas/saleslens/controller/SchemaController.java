@@ -7,6 +7,10 @@ import com.shreyas.saleslens.model.SourceSchema;
 import com.shreyas.saleslens.model.SourceSchemaField;
 import com.shreyas.saleslens.repository.SourceSchemaFieldRepository;
 import com.shreyas.saleslens.repository.SourceSchemaRepository;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -29,12 +33,20 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 @PreAuthorize("hasAnyRole('ADMIN', 'ANALYST')")
+@Tag(name = "Schema", description = "Endpoints for retrieving source schemas and schema drift history")
 public class SchemaController {
 
     private final SourceSchemaRepository sourceSchemaRepository;
     private final SourceSchemaFieldRepository sourceSchemaFieldRepository;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
+    @Operation(summary = "Get current schema", description = "Returns the active inferred schema for a given data source")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Schema retrieved successfully"),
+        @ApiResponse(responseCode = "401", description = "Missing or invalid JWT token"),
+        @ApiResponse(responseCode = "403", description = "Insufficient permissions (requires ADMIN or ANALYST role)"),
+        @ApiResponse(responseCode = "404", description = "No active schema found for the source")
+    })
     @GetMapping
     public ResponseEntity<SchemaResponse> getCurrentSchema(@PathVariable UUID sourceId) {
         return sourceSchemaRepository.findBySourceIdAndStatus(sourceId, SourceSchema.STATUS_ACTIVE)
@@ -43,6 +55,12 @@ public class SchemaController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
+    @Operation(summary = "Get schema drift history", description = "Returns a paginated history of schema versions and drift for a given data source")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Schema history retrieved successfully"),
+        @ApiResponse(responseCode = "401", description = "Missing or invalid JWT token"),
+        @ApiResponse(responseCode = "403", description = "Insufficient permissions (requires ADMIN or ANALYST role)")
+    })
     @GetMapping("/drift")
     public ResponseEntity<Page<SchemaResponse>> getSchemaHistory(
             @PathVariable UUID sourceId,
