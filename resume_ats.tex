@@ -1,0 +1,60 @@
+% 1-Page ATS Backend Systems Engineer — Shreyas S Joshi — Xelatex / pdflatex
+% Single-column, text-extractable, no tables/columns/images
+\documentclass[10pt,a4paper]{article}
+\usepackage[margin=0.55in]{geometry}
+\usepackage{enumitem}
+\usepackage{hyperref}
+\usepackage{fontspec}
+\setmainfont{Calibri}
+\pagestyle{empty}
+\begin{document}
+\begin{center}
+{\Large\bfseries SHREYAS S JOSHI} \\[2pt]
+\small Bangalore, India |
+\href{mailto:shreyasjoshi2511@gmail.com}{shreyasjoshi2511@gmail.com} |
++91 7892055781 |
+\href{https://github.com/BlackPool25}{github.com/BlackPool25} |
+\href{https://www.linkedin.com/in/shreyas-s-joshi}{linkedin.com/in/shreyas-s-joshi} |
+\href{https://portfolio-sable-pi-47.vercel.app}{portfolio-sable-pi-47.vercel.app} |
+LeetCode 257
+\end{center}
+\vspace{-6pt}
+\noindent\textbf{SUMMARY} — Backend Systems Engineer (BMSIT pre-final, dual-degree). Built offline erasure-coded protocol (Rust/RaptorQ) and 8-hr Docker-isolated runtime generator (BUILD \& CONQUER 3.0 Winner, 1st). Seeking backend/infra referral — Docker, Linux, FastAPI/Spring Boot, PostgreSQL/Redis.
+\vspace{4pt}
+
+\noindent\textbf{SKILLS} \\
+\small Languages: Rust, Python, Java, TypeScript, SQL, Dart \quad
+Backend/Infra: Docker, Linux, FastAPI, Spring Boot, REST, WebSocket, BullMQ (Job Queue), Redis, PostgreSQL (pgvector/PostGIS), ChromaDB \quad
+Systems: RaptorQ, BLAKE3, FastCDC, zstd, CRC-32C/SHA-256, Docker Compose, GitHub Actions (CI)
+
+\vspace{6pt}
+\noindent\textbf{PROJECTS}
+\vspace{2pt}
+
+\noindent\textbf{QRStream — Offline Erasure-Coded File Transfer —} \href{https://github.com/BlackPool25/QRStream}{github.com/BlackPool25/QRStream} | Rust/Dart/Flutter/React | 170 commits, MIT, CI, v1.0.1
+\begin{itemize}[leftmargin=12pt, itemsep=1pt, topsep=1pt]
+\item Designed wire-compatible offline protocol: RaptorQ fountain-encode K symbols $\rightarrow$ cycling QR grid (V27/V34/V40, 1x1..3x3, 12-30fps, metadata every 32 ticks) $\rightarrow$ ZXing-C++ decode $\rightarrow$ dedup by ESI $\rightarrow$ any K of K+repair rebuild + SHA-256 gate; caps 16 MiB/transfer.
+\item Implemented Rust codec via flutter\_rust\_bridge 2.12 FFI (71KB Rust + 27KB C++ ZXing), continuous linear tile scaling (nearest-neighbour hard edges), per-frame CRC-32C + SHA-256; measured $\sim$46 KB/s (1 MiB $\sim$23s) via Playwright + virtual camera.
+\item Shipped 3-OS releases (install.sh+RPM, APK stable keystore via Secrets, Windows installer) and 118 Flutter tests; docs ARCHITECTURE, PERF, THREAT-MODEL.
+\end{itemize}
+
+\noindent\textbf{AgentDock — Visual Builder $\rightarrow$ Docker-Isolated Runtimes — BUILD \& CONQUER 3.0 WINNER (1st, 8hrs)} — Altreno Club, BMSIT — Team: Aditya Prasad, Varnika Kirani Raghavendra
+\begin{itemize}[leftmargin=12pt, itemsep=1pt, topsep=1pt]
+\item Built React Flow canvas that compiles NL agent descriptions into self-contained Docker Compose runtimes (gateway + Redis + FastAPI workers) — no coupling to builder; judges asked to run locally.
+\item Solved container isolation under timer: volume mounts + network routes for dynamic agents to share files without leaking — reliable isolation where other teams hardcoded single apps.
+\item Engineered Hono gateway + BullMQ/Redis, FastAPI agents, RAG via ChromaDB/offline sentence-transformers, LLM Gateway (5 providers with failover).
+\end{itemize}
+
+\vspace{6pt}
+\noindent\textbf{OPEN SOURCE}\\
+\small \href{https://github.com/milvus-io/milvus-proto/pull/639}{milvus-io/milvus-proto\#639 MERGED — UUIDArray proto for Milvus} + \href{https://github.com/milvus-io/pymilvus/pull/3720}{pymilvus\#3720 SDK}; alt: \href{https://github.com/koala73/worldmonitor/pull/7058}{worldmonitor\#7058 CVE deps}, \href{https://github.com/koala73/worldmonitor/pull/7057}{\#7057 sandbox gate}
+
+\vspace{4pt}
+\noindent\textbf{ACHIEVEMENTS} — 1st Place BUILD \& CONQUER 3.0 (Altreno, BMSIT) 8hr Docker generator; 2nd Place CTF (Access Denied, BMSIT); LeetCode 257 (132E/118M/7H, 80.06\%)
+
+\vspace{4pt}
+\noindent\textbf{EDUCATION}\\
+\small B.Tech AIML — BMS Institute of Technology and Management, Bangalore — CGPA 9.39/10 — Expected May 2027 \\
+\small B.Sc CS — BITS Pilani (Online) — CGPA 8.91/10 — Expected May 2027
+
+\end{document}
